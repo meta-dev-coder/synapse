@@ -16,6 +16,8 @@ venv/
 .env
 .env.local
 .env.*.local
+scenario-lab/frontend/.env.production
+scenario-lab/frontend/.env.development
 # keep .env.example (safe template)
 !.env.example
 
@@ -31,6 +33,10 @@ scenario-lab/tools/output/
 
 # ── Claude Code local settings ───────────────────────────────────────────────
 .claude/settings.local.json
+
+# ── Project docs / internal files ────────────────────────────────────────────
+Intertraffic_POC_Scope_Document.txt
+New updates.txt
 
 # ── OS / Editor ──────────────────────────────────────────────────────────────
 .DS_Store
