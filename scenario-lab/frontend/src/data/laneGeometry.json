@@ -1,0 +1,340 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "corridor_id": "A10W-TOLL-01",
+    "corridor_name": "A10-West Toll Plaza",
+    "version": "1.0.0",
+    "crs": "WGS84",
+    "altitude_mode": "absolute_msl",
+    "corridor_length_km": 2.5,
+    "lanes_count": 4,
+    "baseline_period": "weekday_peak_1hr",
+    "notes": "Synthetic POC geometry. Coordinates near Amsterdam scale."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "CORRIDOR_BOUNDARY",
+      "properties": {
+        "type": "corridor_boundary",
+        "name": "A10-West Toll Corridor",
+        "length_km": 2.5
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [4.8945, 52.3620, 12],
+          [4.8957, 52.3620, 12],
+          [4.8957, 52.3880, 12],
+          [4.8945, 52.3880, 12],
+          [4.8945, 52.3620, 12]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PLAZA_BOUNDARY",
+      "properties": {
+        "type": "plaza_boundary",
+        "name": "Toll Plaza Zone",
+        "plaza_length_m": 120
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [4.8944, 52.3744, 12],
+          [4.8958, 52.3744, 12],
+          [4.8958, 52.3757, 12],
+          [4.8944, 52.3757, 12],
+          [4.8944, 52.3744, 12]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "L1",
+      "properties": {
+        "lane_id": "L1",
+        "lane_type": "HOV_EXPRESS",
+        "lane_label": "Lane 1 — HOV/Express",
+        "payment_method": "HOV_ETC",
+        "direction": "NORTHBOUND",
+        "width_m": 3.7,
+        "speed_limit_kmh": 100,
+        "baseline_capacity_veh_hr": 1800,
+        "baseline_volume_veh_hr": 1020,
+        "baseline_speed_kmh": 88,
+        "baseline_toll_rate_usd": { "car": 2.50, "truck": 0.00, "bus": 0.00, "van": 2.50 },
+        "ev_eligible": true,
+        "hov_minimum_occupants": 3,
+        "color_hex": "#4A90E2",
+        "camera_ids": ["CAM-L1-N", "CAM-L1-S"],
+        "sensor_ids": ["SENS-L1-01", "SENS-L1-02"]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.8946, 52.3625, 12],
+          [4.8946, 52.3650, 12],
+          [4.8946, 52.3675, 12],
+          [4.8946, 52.3700, 12],
+          [4.8946, 52.3725, 12],
+          [4.8946, 52.3744, 12],
+          [4.8946, 52.3750, 13],
+          [4.8946, 52.3757, 12],
+          [4.8946, 52.3775, 12],
+          [4.8946, 52.3800, 12],
+          [4.8946, 52.3825, 12],
+          [4.8946, 52.3850, 12],
+          [4.8946, 52.3875, 12]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "L2",
+      "properties": {
+        "lane_id": "L2",
+        "lane_type": "ETC",
+        "lane_label": "Lane 2 — ETC",
+        "payment_method": "ETC_ONLY",
+        "direction": "NORTHBOUND",
+        "width_m": 3.7,
+        "speed_limit_kmh": 80,
+        "baseline_capacity_veh_hr": 1800,
+        "baseline_volume_veh_hr": 1340,
+        "baseline_speed_kmh": 72,
+        "baseline_toll_rate_usd": { "car": 3.00, "truck": 7.50, "bus": 6.00, "van": 4.00 },
+        "ev_eligible": true,
+        "color_hex": "#7ED321",
+        "camera_ids": ["CAM-L2-N", "CAM-L2-S"],
+        "sensor_ids": ["SENS-L2-01", "SENS-L2-02"]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.8948, 52.3625, 12],
+          [4.8948, 52.3650, 12],
+          [4.8948, 52.3675, 12],
+          [4.8948, 52.3700, 12],
+          [4.8948, 52.3725, 12],
+          [4.8948, 52.3744, 12],
+          [4.8948, 52.3750, 13],
+          [4.8948, 52.3757, 12],
+          [4.8948, 52.3775, 12],
+          [4.8948, 52.3800, 12],
+          [4.8948, 52.3825, 12],
+          [4.8948, 52.3850, 12],
+          [4.8948, 52.3875, 12]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "L3",
+      "properties": {
+        "lane_id": "L3",
+        "lane_type": "ETC",
+        "lane_label": "Lane 3 — ETC",
+        "payment_method": "ETC_ONLY",
+        "direction": "NORTHBOUND",
+        "width_m": 3.7,
+        "speed_limit_kmh": 80,
+        "baseline_capacity_veh_hr": 1800,
+        "baseline_volume_veh_hr": 1280,
+        "baseline_speed_kmh": 74,
+        "baseline_toll_rate_usd": { "car": 3.00, "truck": 7.50, "bus": 6.00, "van": 4.00 },
+        "ev_eligible": true,
+        "color_hex": "#F5A623",
+        "camera_ids": ["CAM-L3-N", "CAM-L3-S"],
+        "sensor_ids": ["SENS-L3-01", "SENS-L3-02"]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.8950, 52.3625, 12],
+          [4.8950, 52.3650, 12],
+          [4.8950, 52.3675, 12],
+          [4.8950, 52.3700, 12],
+          [4.8950, 52.3725, 12],
+          [4.8950, 52.3744, 12],
+          [4.8950, 52.3750, 13],
+          [4.8950, 52.3757, 12],
+          [4.8950, 52.3775, 12],
+          [4.8950, 52.3800, 12],
+          [4.8950, 52.3825, 12],
+          [4.8950, 52.3850, 12],
+          [4.8950, 52.3875, 12]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "L4",
+      "properties": {
+        "lane_id": "L4",
+        "lane_type": "CASH",
+        "lane_label": "Lane 4 — Cash",
+        "payment_method": "CASH_CARD",
+        "direction": "NORTHBOUND",
+        "width_m": 4.5,
+        "speed_limit_kmh": 30,
+        "baseline_capacity_veh_hr": 800,
+        "baseline_volume_veh_hr": 560,
+        "baseline_speed_kmh": 22,
+        "baseline_toll_rate_usd": { "car": 3.50, "truck": 9.00, "bus": 7.00, "van": 5.00 },
+        "ev_eligible": false,
+        "color_hex": "#E85D4A",
+        "camera_ids": ["CAM-L4-N", "CAM-L4-S"],
+        "sensor_ids": ["SENS-L4-01", "SENS-L4-02"]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.8952, 52.3625, 12],
+          [4.8952, 52.3650, 12],
+          [4.8952, 52.3675, 12],
+          [4.8952, 52.3700, 12],
+          [4.8952, 52.3725, 12],
+          [4.8952, 52.3744, 12],
+          [4.8952, 52.3750, 13],
+          [4.8952, 52.3757, 12],
+          [4.8952, 52.3775, 12],
+          [4.8952, 52.3800, 12],
+          [4.8952, 52.3825, 12],
+          [4.8952, 52.3850, 12],
+          [4.8952, 52.3875, 12]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ENTRY_GATE",
+      "properties": {
+        "type": "gate",
+        "subtype": "entry",
+        "name": "South Entry Gate",
+        "label": "Entry",
+        "altitude_m": 14
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.8950, 52.3625, 14]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "EXIT_GATE",
+      "properties": {
+        "type": "gate",
+        "subtype": "exit",
+        "name": "North Exit Gate",
+        "label": "Exit",
+        "altitude_m": 14
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.8950, 52.3875, 14]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "PLAZA_CENTER",
+      "properties": {
+        "type": "plaza_center",
+        "name": "Plaza KPI Anchor",
+        "label": "A10-West Toll Plaza",
+        "altitude_m": 18,
+        "use": "billboard_anchor_for_kpi_overlays"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.8950, 52.3750, 18]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "CAM-L1-N",
+      "properties": {
+        "type": "sensor",
+        "subtype": "camera",
+        "lane_id": "L1",
+        "position": "north_of_plaza",
+        "altitude_m": 16
+      },
+      "geometry": { "type": "Point", "coordinates": [4.8946, 52.3760, 16] }
+    },
+    {
+      "type": "Feature",
+      "id": "CAM-L2-N",
+      "properties": {
+        "type": "sensor",
+        "subtype": "camera",
+        "lane_id": "L2",
+        "position": "north_of_plaza",
+        "altitude_m": 16
+      },
+      "geometry": { "type": "Point", "coordinates": [4.8948, 52.3760, 16] }
+    },
+    {
+      "type": "Feature",
+      "id": "CAM-L3-N",
+      "properties": {
+        "type": "sensor",
+        "subtype": "camera",
+        "lane_id": "L3",
+        "position": "north_of_plaza",
+        "altitude_m": 16
+      },
+      "geometry": { "type": "Point", "coordinates": [4.8950, 52.3760, 16] }
+    },
+    {
+      "type": "Feature",
+      "id": "CAM-L4-N",
+      "properties": {
+        "type": "sensor",
+        "subtype": "camera",
+        "lane_id": "L4",
+        "position": "north_of_plaza",
+        "altitude_m": 16
+      },
+      "geometry": { "type": "Point", "coordinates": [4.8952, 52.3760, 16] }
+    },
+    {
+      "type": "Feature",
+      "id": "DIVERSION_RAMP_WEST",
+      "properties": {
+        "type": "diversion_route",
+        "name": "Western Bypass (N201)",
+        "use": "scenario1_diversion_path"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.8945, 52.3720, 12],
+          [4.8935, 52.3730, 12],
+          [4.8920, 52.3750, 12],
+          [4.8915, 52.3775, 12]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "DIVERSION_RAMP_EAST",
+      "properties": {
+        "type": "diversion_route",
+        "name": "Eastern Bypass (N205)",
+        "use": "scenario1_diversion_path"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.8957, 52.3720, 12],
+          [4.8967, 52.3730, 12],
+          [4.8980, 52.3750, 12],
+          [4.8985, 52.3775, 12]
+        ]
+      }
+    }
+  ]
+}

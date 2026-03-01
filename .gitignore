@@ -1,0 +1,41 @@
+# ── Node ────────────────────────────────────────────────────────────────────
+node_modules/
+dist/
+.cache/
+
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+
+# ── Environment / Secrets ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+# keep .env.example (safe template)
+!.env.example
+
+# ── Build / Generated output ─────────────────────────────────────────────────
+scenario-lab/tools/output/
+
+# ── Large 3D model files ──────────────────────────────────────────────────────
+*.glb
+*.gltf
+
+# ── iModelJS cache ───────────────────────────────────────────────────────────
+.imodeljs-cache/
+
+# ── Claude Code local settings ───────────────────────────────────────────────
+.claude/settings.local.json
+
+# ── OS / Editor ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

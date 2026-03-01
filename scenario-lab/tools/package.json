@@ -1,0 +1,26 @@
+{
+  "name": "scenario-lab-tools",
+  "version": "1.0.0",
+  "description": "iTwin upload tools for Scenario Lab POC",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "upload": "npx tsx upload-to-itwin.ts"
+  },
+  "dependencies": {
+    "@itwin/core-backend": "^4.10.0",
+    "@itwin/core-common": "^4.10.0",
+    "@itwin/core-geometry": "^4.10.0",
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.15.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
