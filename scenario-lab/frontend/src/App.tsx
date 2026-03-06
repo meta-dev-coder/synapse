@@ -8,6 +8,7 @@ import EvasionScenario from './components/scenarios/EvasionScenario'
 import ComparisonScenario from './components/scenarios/ComparisonScenario'
 import AssetHealthScenario from './components/scenarios/AssetHealthScenario'
 import PredictiveMaintScenario from './components/scenarios/PredictiveMaintScenario'
+import SettingsScenario from './components/scenarios/SettingsScenario'
 
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -37,106 +38,41 @@ class ErrorBoundary extends Component<
   }
 }
 
-export type ScenarioType = 'toll' | 'corridor' | 'emission' | 'evasion' | 'comparison' | 'asset_health' | 'predictive_maint'
-export type RampType = 'traffic' | 'emission' | 'risk' | 'congestion' | null
-export type ViewMode = 'lines' | 'model'
+export type ScenarioType = 'toll' | 'corridor' | 'emission' | 'evasion' | 'comparison' | 'asset_health' | 'predictive_maint' | 'settings'
 
 export interface SimulationResult {
   cesium_heatmap?: Record<string, number>
   [key: string]: unknown
 }
 
-// ─── View Mode Toggle ─────────────────────────────────────────────────────────
-
-interface ViewToggleProps {
-  mode: ViewMode
-  onChange: (m: ViewMode) => void
-}
-
-const ViewToggle: React.FC<ViewToggleProps> = ({ mode, onChange }) => {
-  const btnBase: React.CSSProperties = {
-    flex: 1,
-    padding: '5px 0',
-    fontSize: 11,
-    fontWeight: 700,
-    borderRadius: 4,
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'background 0.15s, color 0.15s',
-    letterSpacing: 0.3,
-  }
-
-  return (
-    <div style={{ padding: '10px 20px 12px', background: '#0a2744', borderBottom: '1px solid #1a4a80', flexShrink: 0 }}>
-      <div style={{ fontSize: 10, color: '#5577aa', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
-        View Mode
-      </div>
-      <div style={{ display: 'flex', gap: 4, background: '#06192e', borderRadius: 5, padding: 3 }}>
-        <button
-          type="button"
-          style={{
-            ...btnBase,
-            background: mode === 'lines' ? '#1a4a80' : 'transparent',
-            color: mode === 'lines' ? '#e0e0e0' : '#5577aa',
-          }}
-          onClick={() => onChange('lines')}
-        >
-          Lane Lines
-        </button>
-        <button
-          type="button"
-          style={{
-            ...btnBase,
-            background: mode === 'model' ? '#e94560' : 'transparent',
-            color: mode === 'model' ? '#fff' : '#5577aa',
-          }}
-          onClick={() => onChange('model')}
-        >
-          3D Model
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 const App: React.FC = () => {
   const [activeScenario, setActiveScenario] = useState<ScenarioType>('toll')
-  const [cesiumHeatmap, setCesiumHeatmap] = useState<Record<string, number>>({})
-  const [rampType, setRampType] = useState<RampType>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('lines')
-
-  const handleSimulationResult = useCallback(
-    (result: SimulationResult, ramp: RampType) => {
-      setCesiumHeatmap(result.cesium_heatmap ?? {})
-      setRampType(ramp)
-    },
-    []
-  )
+  const [simDuration, setSimDuration] = useState(30)
 
   const handleScenarioChange = useCallback((scenario: ScenarioType) => {
     setActiveScenario(scenario)
-    setCesiumHeatmap({})
-    setRampType(null)
   }, [])
 
   const renderScenario = () => {
     switch (activeScenario) {
       case 'toll':
-        return <TollScenario onResult={(r) => handleSimulationResult(r, 'traffic')} />
+        return <TollScenario onResult={() => {}} simDuration={simDuration} />
       case 'corridor':
-        return <CorridorScenario onResult={(r) => handleSimulationResult(r, 'congestion')} />
+        return <CorridorScenario onResult={() => {}} simDuration={simDuration} />
       case 'emission':
-        return <EmissionScenario onResult={(r) => handleSimulationResult(r, 'emission')} />
+        return <EmissionScenario onResult={() => {}} simDuration={simDuration} />
       case 'evasion':
-        return <EvasionScenario onResult={(r) => handleSimulationResult(r, 'risk')} />
+        return <EvasionScenario onResult={() => {}} simDuration={simDuration} />
       case 'comparison':
-        return <ComparisonScenario onResult={(r) => handleSimulationResult(r, null)} />
+        return <ComparisonScenario onResult={() => {}} simDuration={simDuration} />
       case 'asset_health':
-        return <AssetHealthScenario onResult={(r) => handleSimulationResult(r, null)} />
+        return <AssetHealthScenario onResult={() => {}} />
       case 'predictive_maint':
-        return <PredictiveMaintScenario onResult={(r) => handleSimulationResult(r, null)} />
+        return <PredictiveMaintScenario onResult={() => {}} />
+      case 'settings':
+        return <SettingsScenario simDuration={simDuration} onSimDurationChange={setSimDuration} />
     }
   }
 
@@ -171,12 +107,9 @@ const App: React.FC = () => {
               🚦 Scenario Lab
             </div>
             <div style={{ fontSize: 12, color: '#8899aa', marginTop: 3 }}>
-              A10-West Toll Plaza POC
+              A10-West Toll Plaza POC · 8 Lanes (NB + SB)
             </div>
           </div>
-
-          {/* View mode toggle */}
-          <ViewToggle mode={viewMode} onChange={setViewMode} />
 
           {/* Scenario tabs */}
           <ScenarioTabs active={activeScenario} onChange={handleScenarioChange} />
@@ -189,11 +122,7 @@ const App: React.FC = () => {
 
         {/* Right Cesium pane */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          <CesiumViewer
-            heatmap={cesiumHeatmap}
-            rampType={rampType}
-            viewMode={viewMode}
-          />
+          <CesiumViewer />
         </div>
       </div>
     </ErrorBoundary>

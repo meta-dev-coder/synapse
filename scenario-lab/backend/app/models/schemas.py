@@ -8,19 +8,28 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field, model_validator
 from pydantic import ConfigDict
 
+_ALL_LANE_IDS = frozenset({
+    "NB-L1", "NB-L2", "NB-L3", "NB-L4",
+    "SB-L1", "SB-L2", "SB-L3", "SB-L4",
+})
+
 
 # ---------------------------------------------------------------------------
 # Shared / utility models
 # ---------------------------------------------------------------------------
 
 class LaneHeatmap(BaseModel):
-    """Cesium heatmap scalar per lane (0.0 – 1.0)."""
+    """Cesium heatmap scalar per lane (0.0 – 1.0) for all 8 NB/SB lanes."""
     model_config = ConfigDict(extra="allow")
 
-    L1: float = Field(..., ge=0.0, le=1.0)
-    L2: float = Field(..., ge=0.0, le=1.0)
-    L3: float = Field(..., ge=0.0, le=1.0)
-    L4: float = Field(..., ge=0.0, le=1.0)
+    NB_L1: float = Field(..., ge=0.0, le=1.0)
+    NB_L2: float = Field(..., ge=0.0, le=1.0)
+    NB_L3: float = Field(..., ge=0.0, le=1.0)
+    NB_L4: float = Field(..., ge=0.0, le=1.0)
+    SB_L1: float = Field(..., ge=0.0, le=1.0)
+    SB_L2: float = Field(..., ge=0.0, le=1.0)
+    SB_L3: float = Field(..., ge=0.0, le=1.0)
+    SB_L4: float = Field(..., ge=0.0, le=1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +59,12 @@ class TollRequest(BaseModel):
         ge=0.0,
         le=1.0,
         description="Enforcement strength (0 = none, 1 = maximum)",
+    )
+    simulation_duration_sec: int = Field(
+        default=30,
+        ge=10,
+        le=60,
+        description="Total simulated wall-clock duration in seconds (10–60)",
     )
 
     @model_validator(mode="after")
@@ -95,7 +110,7 @@ class CorridorRequest(BaseModel):
 
     closed_lanes: list[str] = Field(
         default_factory=list,
-        description="Lane IDs to close (e.g. ['L4'])",
+        description="Lane IDs to close (e.g. ['NB-L4', 'SB-L4'])",
     )
     capacity_reduction_pct: float = Field(
         default=0.0,
@@ -106,18 +121,23 @@ class CorridorRequest(BaseModel):
     weather_factor: float = Field(
         default=1.0,
         ge=0.1,
-        le=1.0,
+        le=1.5,
         description="Weather degradation factor (1.0 = clear, <1.0 = adverse)",
+    )
+    simulation_duration_sec: int = Field(
+        default=30,
+        ge=10,
+        le=60,
+        description="Total simulated wall-clock duration in seconds (10–60)",
     )
 
     @model_validator(mode="after")
     def validate_closed_lanes(self) -> "CorridorRequest":
-        valid_lanes = {"L1", "L2", "L3", "L4"}
         for lane in self.closed_lanes:
-            if lane not in valid_lanes:
-                raise ValueError(f"Unknown lane '{lane}'. Must be one of {valid_lanes}")
-        if len(self.closed_lanes) == 4:
-            raise ValueError("Cannot close all four lanes simultaneously")
+            if lane not in _ALL_LANE_IDS:
+                raise ValueError(f"Unknown lane '{lane}'. Must be one of {sorted(_ALL_LANE_IDS)}")
+        if len(self.closed_lanes) == 8:
+            raise ValueError("Cannot close all eight lanes simultaneously")
         return self
 
 
@@ -165,6 +185,12 @@ class EmissionRequest(BaseModel):
         ge=0.0,
         le=60.0,
         description="Additional idling time per vehicle (minutes)",
+    )
+    simulation_duration_sec: int = Field(
+        default=30,
+        ge=10,
+        le=60,
+        description="Total simulated wall-clock duration in seconds (10–60)",
     )
 
     @model_validator(mode="after")
@@ -226,6 +252,12 @@ class EvasionRequest(BaseModel):
         ge=0.0,
         le=1.0,
         description="Normalized patrol frequency (0 = no patrol, 1 = maximum)",
+    )
+    simulation_duration_sec: int = Field(
+        default=30,
+        ge=10,
+        le=60,
+        description="Total simulated wall-clock duration in seconds (10–60)",
     )
 
 
@@ -291,6 +323,12 @@ class ComparisonRequest(BaseModel):
         ...,
         description="Second alternative scenario",
     )
+    simulation_duration_sec: int = Field(
+        default=30,
+        ge=10,
+        le=60,
+        description="Total simulated wall-clock duration per sub-scenario (10–60)",
+    )
 
 
 class ComparisonMetrics(BaseModel):
@@ -308,14 +346,22 @@ class ComparisonColumn(BaseModel):
     label: str
     metrics: ComparisonMetrics
     cesium_heatmap: LaneHeatmap
+    per_lane: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Per-lane breakdown rows for this scenario column",
+    )
 
 
 class CesiumDiffHeatmap(BaseModel):
     """Per-lane heatmap showing the difference between scenario_a and scenario_b."""
-    L1: float
-    L2: float
-    L3: float
-    L4: float
+    NB_L1: float
+    NB_L2: float
+    NB_L3: float
+    NB_L4: float
+    SB_L1: float
+    SB_L2: float
+    SB_L3: float
+    SB_L4: float
 
 
 class ComparisonResult(BaseModel):

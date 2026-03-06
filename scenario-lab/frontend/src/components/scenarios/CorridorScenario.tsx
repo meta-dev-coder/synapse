@@ -1,13 +1,16 @@
 import React, { useState } from 'react'
+import { API } from '../../lib/api'
 import SliderInput from '../ui/SliderInput'
 import KpiCard from '../ui/KpiCard'
 import KpiGrid from '../ui/KpiGrid'
 import PerLaneTable, { type ColDef } from '../ui/PerLaneTable'
 import MethodologyPanel from '../ui/MethodologyPanel'
+import SimulationLog from '../SimulationLog'
 import type { SimulationResult } from '../../App'
 
 interface Props {
   onResult: (result: SimulationResult) => void
+  simDuration: number
 }
 
 interface CorridorLaneResult {
@@ -31,12 +34,19 @@ interface CorridorResult {
   [key: string]: unknown
 }
 
-const LANES = ['L1', 'L2', 'L3', 'L4'] as const
+const NB_LANES = ['NB-L1', 'NB-L2', 'NB-L3', 'NB-L4'] as const
+const SB_LANES = ['SB-L1', 'SB-L2', 'SB-L3', 'SB-L4'] as const
+const ALL_LANES = [...NB_LANES, ...SB_LANES]
+
 const LANE_LABELS: Record<string, string> = {
-  L1: 'L1 — HOV/Express',
-  L2: 'L2 — ETC',
-  L3: 'L3 — ETC',
-  L4: 'L4 — Cash',
+  'NB-L1': 'NB-L1 — HOV/Express',
+  'NB-L2': 'NB-L2 — ETC Fast',
+  'NB-L3': 'NB-L3 — ETC General',
+  'NB-L4': 'NB-L4 — Cash',
+  'SB-L1': 'SB-L1 — HOV/Express',
+  'SB-L2': 'SB-L2 — ETC Fast',
+  'SB-L3': 'SB-L3 — ETC General',
+  'SB-L4': 'SB-L4 — Cash',
 }
 
 const sectionLabelStyle: React.CSSProperties = {
@@ -46,6 +56,18 @@ const sectionLabelStyle: React.CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: 1,
   marginBottom: 10,
+}
+
+const groupHeaderStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: '#7799bb',
+  textTransform: 'uppercase',
+  letterSpacing: 1,
+  padding: '5px 0 3px',
+  borderBottom: '1px solid #1a3a60',
+  marginBottom: 4,
+  marginTop: 8,
 }
 
 const dataSourceStyle: React.CSSProperties = {
@@ -96,7 +118,7 @@ const LANE_COLS: ColDef[] = [
   },
 ]
 
-const CorridorScenario: React.FC<Props> = ({ onResult }) => {
+const CorridorScenario: React.FC<Props> = ({ onResult, simDuration }) => {
   const [closedLanes, setClosedLanes] = useState<string[]>([])
   const [capacityReductionPct, setCapacityReductionPct] = useState(0)
   const [weatherFactor, setWeatherFactor] = useState(1.0)
@@ -113,19 +135,20 @@ const CorridorScenario: React.FC<Props> = ({ onResult }) => {
 
   const openLaneCount = result
     ? result.per_lane.filter((l) => !l.is_closed).length
-    : LANES.length - closedLanes.length
+    : ALL_LANES.length - closedLanes.length
 
   const handleRun = async () => {
     setLoading(true)
     setError(null)
     try {
-      const resp = await fetch('http://localhost:8000/api/v1/simulate/corridor', {
+      const resp = await fetch(API.corridor, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           closed_lanes: closedLanes,
           capacity_reduction_pct: capacityReductionPct,
           weather_factor: weatherFactor,
+          simulation_duration_sec: simDuration,
         }),
       })
       if (!resp.ok) {
@@ -142,46 +165,60 @@ const CorridorScenario: React.FC<Props> = ({ onResult }) => {
     }
   }
 
+  const nbRows = result
+    ? (result.per_lane.filter((r) => r.lane_id.startsWith('NB')) as unknown as Record<string, unknown>[])
+    : []
+  const sbRows = result
+    ? (result.per_lane.filter((r) => r.lane_id.startsWith('SB')) as unknown as Record<string, unknown>[])
+    : []
+
+  const renderLaneGroup = (lanes: readonly string[], label: string) => (
+    <div style={{ marginBottom: 8 }}>
+      <div style={groupHeaderStyle}>{label}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {lanes.map((laneId) => (
+          <label
+            key={laneId}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              cursor: 'pointer',
+              fontSize: 12,
+              color: closedLanes.includes(laneId) ? '#e94560' : '#ccd8e8',
+              background: '#0a2744',
+              border: `1px solid ${closedLanes.includes(laneId) ? '#e94560' : '#1a3a60'}`,
+              borderRadius: 5,
+              padding: '6px 10px',
+              transition: 'all 0.15s',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={closedLanes.includes(laneId)}
+              onChange={() => toggleLane(laneId)}
+              style={{ width: 14, height: 14, cursor: 'pointer', accentColor: '#e94560' }}
+            />
+            {LANE_LABELS[laneId]}
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+
   return (
     <div>
-      {/* Data Sources */}
       <div style={dataSourceStyle}>
         <strong style={{ color: '#ccd8e8' }}>Data Sources:</strong> Baseline: A10-West · 2.5 km
-        corridor · 6,200 veh/hr design capacity
+        corridor · 7,960 veh/hr (8 lanes, NB + SB)
         <br />
         BPR parameters: α = 0.15, β = 4.0 (HCM standard) · Avg vehicle spacing 6.5 m
       </div>
 
       <div style={{ marginBottom: 18 }}>
         <div style={sectionLabelStyle}>Closed Lanes</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {LANES.map((laneId) => (
-            <label
-              key={laneId}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                cursor: 'pointer',
-                fontSize: 13,
-                color: closedLanes.includes(laneId) ? '#e94560' : '#ccd8e8',
-                background: '#0a2744',
-                border: `1px solid ${closedLanes.includes(laneId) ? '#e94560' : '#1a3a60'}`,
-                borderRadius: 5,
-                padding: '7px 10px',
-                transition: 'all 0.15s',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={closedLanes.includes(laneId)}
-                onChange={() => toggleLane(laneId)}
-                style={{ width: 14, height: 14, cursor: 'pointer', accentColor: '#e94560' }}
-              />
-              {LANE_LABELS[laneId]}
-            </label>
-          ))}
-        </div>
+        {renderLaneGroup(NB_LANES, 'Northbound (NB)')}
+        {renderLaneGroup(SB_LANES, 'Southbound (SB)')}
       </div>
 
       <div style={{ marginBottom: 18 }}>
@@ -218,7 +255,7 @@ const CorridorScenario: React.FC<Props> = ({ onResult }) => {
           fontWeight: 700,
           fontSize: 14,
           borderRadius: 6,
-          marginBottom: 16,
+          marginBottom: 8,
           opacity: loading ? 0.7 : 1,
           transition: 'background 0.15s',
           border: 'none',
@@ -227,6 +264,8 @@ const CorridorScenario: React.FC<Props> = ({ onResult }) => {
       >
         {loading ? 'Running...' : 'Run Simulation'}
       </button>
+
+      <SimulationLog isRunning={loading} simDuration={simDuration} />
 
       {error && (
         <div
@@ -270,17 +309,17 @@ const CorridorScenario: React.FC<Props> = ({ onResult }) => {
             />
             <KpiCard
               label="Open Lanes"
-              value={`${openLaneCount} / ${LANES.length}`}
+              value={`${openLaneCount} / ${ALL_LANES.length}`}
             />
           </KpiGrid>
 
           {result.per_lane && result.per_lane.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ ...sectionLabelStyle, marginBottom: 6 }}>Per-Lane Breakdown</div>
-              <PerLaneTable
-                columns={LANE_COLS}
-                rows={result.per_lane as unknown as Record<string, unknown>[]}
-              />
+              <div style={{ ...sectionLabelStyle, marginBottom: 4 }}>Per-Lane Breakdown</div>
+              <div style={groupHeaderStyle}>Northbound (NB)</div>
+              <PerLaneTable columns={LANE_COLS} rows={nbRows} />
+              <div style={groupHeaderStyle}>Southbound (SB)</div>
+              <PerLaneTable columns={LANE_COLS} rows={sbRows} />
             </div>
           )}
         </div>
@@ -314,8 +353,8 @@ Step 4 — Queue:
   Queue_veh = max(0, V_sim − c_eff)
   Queue_m   = Queue_veh × 6.5 m (avg spacing incl. headway)
 
-Data: Baseline free-flow times from baseline_data.py
-  L1 90 s · L2 112 s · L3 112 s · L4 300 s`}
+NB: Free-flow times 90 s (HOV) · 112 s (ETC) · 112 s (ETC) · 300 s (Cash)
+SB: Free-flow times 95 s (HOV) · 118 s (ETC) · 118 s (ETC) · 320 s (Cash)`}
         </pre>
       </MethodologyPanel>
     </div>

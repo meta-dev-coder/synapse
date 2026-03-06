@@ -1,9 +1,13 @@
 import React, { useState } from 'react'
+import { API } from '../../lib/api'
 import SliderInput from '../ui/SliderInput'
+import PerLaneTable, { type ColDef } from '../ui/PerLaneTable'
+import SimulationLog from '../SimulationLog'
 import type { SimulationResult } from '../../App'
 
 interface Props {
   onResult: (result: SimulationResult) => void
+  simDuration: number
 }
 
 type ScenarioDef =
@@ -48,6 +52,7 @@ interface ComparisonColumn {
   label: string
   metrics: ComparisonMetrics
   cesium_heatmap: Record<string, number>
+  per_lane: Record<string, unknown>[]
 }
 
 interface ComparisonResult {
@@ -59,6 +64,8 @@ interface ComparisonResult {
 
 const SCENARIO_TYPES = ['toll', 'corridor', 'emission', 'evasion'] as const
 type ScenarioKind = typeof SCENARIO_TYPES[number]
+
+type DirectionFilter = 'All' | 'NB' | 'SB'
 
 const DEFAULT_TOLL_INPUTS: TollInputs = {
   vehicle_rates: { car: 3.0, truck: 7.5, bus: 6.0, van: 4.0 },
@@ -101,6 +108,18 @@ const sectionLabelStyle: React.CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: 1,
   marginBottom: 8,
+}
+
+const groupHeaderStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: '#7799bb',
+  textTransform: 'uppercase',
+  letterSpacing: 1,
+  padding: '5px 0 3px',
+  borderBottom: '1px solid #1a3a60',
+  marginBottom: 4,
+  marginTop: 8,
 }
 
 // ─── Per-scenario mini input panels ──────────────────────────────────────────
@@ -294,8 +313,6 @@ interface TableMetric {
   positiveIsGood: boolean
 }
 
-type ComparisonColumnData = ComparisonColumn
-
 const TABLE_METRICS: TableMetric[] = [
   { label: 'Revenue ($/hr)',       key: 'revenue_usd_hr',        unit: '$',   positiveIsGood: true  },
   { label: 'CO₂ (kg/hr)',          key: 'co2_kg_hr',             unit: 'kg',  positiveIsGood: false },
@@ -335,8 +352,25 @@ function cellTextColor(
   return '#e0e0e0'
 }
 
+function deltaBadge(
+  value: number | null,
+  baseline: number | null,
+  positiveIsGood: boolean
+): React.ReactNode {
+  if (value === null || baseline === null || baseline === 0) return null
+  const delta = value - baseline
+  const good = positiveIsGood ? delta > 0 : delta < 0
+  const color = good ? '#27ae60' : '#e74c3c'
+  const arrow = delta > 0 ? '▲' : '▼'
+  return (
+    <span style={{ fontSize: 10, color, marginLeft: 4, fontWeight: 700 }}>
+      {arrow}{Math.abs(delta).toFixed(1)}
+    </span>
+  )
+}
+
 const ComparisonTable: React.FC<{ result: ComparisonResult }> = ({ result }) => {
-  const colData: ComparisonColumnData[] = [result.baseline, result.scenario_a, result.scenario_b]
+  const colData = [result.baseline, result.scenario_a, result.scenario_b]
   const colLabels = [result.baseline.label, result.scenario_a.label, result.scenario_b.label]
 
   return (
@@ -412,28 +446,95 @@ const ComparisonTable: React.FC<{ result: ComparisonResult }> = ({ result }) => 
   )
 }
 
-// ─── Delta badge ─────────────────────────────────────────────────────────────
+// ─── Per-lane breakdown per column ────────────────────────────────────────────
 
-function deltaBadge(
-  value: number | null,
-  baseline: number | null,
-  positiveIsGood: boolean
-): React.ReactNode {
-  if (value === null || baseline === null || baseline === 0) return null
-  const delta = value - baseline
-  const good = positiveIsGood ? delta > 0 : delta < 0
-  const color = good ? '#27ae60' : '#e74c3c'
-  const arrow = delta > 0 ? '▲' : '▼'
+function filterByDirection(rows: Record<string, unknown>[], dir: DirectionFilter): Record<string, unknown>[] {
+  if (dir === 'All') return rows
+  return rows.filter((r) => String(r['lane_id'] ?? '').startsWith(dir))
+}
+
+interface PerLaneSectionProps {
+  colLabel: string
+  perLane: Record<string, unknown>[]
+  direction: DirectionFilter
+  onDirectionChange: (d: DirectionFilter) => void
+}
+
+const PerLaneSection: React.FC<PerLaneSectionProps> = ({ colLabel, perLane, direction, onDirectionChange }) => {
+  if (!perLane || perLane.length === 0) return null
+
+  // Detect available columns from first row
+  const firstRow = perLane[0]
+  const dynamicCols: ColDef[] = [
+    { key: 'lane_id', label: 'Lane', align: 'left' },
+  ]
+  const numericKeys = Object.keys(firstRow).filter(
+    (k) => k !== 'lane_id' && typeof firstRow[k] === 'number'
+  )
+  for (const key of numericKeys.slice(0, 4)) {
+    dynamicCols.push({
+      key,
+      label: key.replace(/_/g, ' ').replace(/pct$/, '%').replace(/usd hr$/, '$/hr'),
+      format: (v) => Number(v).toFixed(1),
+    })
+  }
+
+  const filtered = filterByDirection(perLane, direction)
+  const nbRows = filtered.filter((r) => String(r['lane_id'] ?? '').startsWith('NB'))
+  const sbRows = filtered.filter((r) => String(r['lane_id'] ?? '').startsWith('SB'))
+
   return (
-    <span style={{ fontSize: 10, color, marginLeft: 4, fontWeight: 700 }}>
-      {arrow}{Math.abs(delta).toFixed(1)}
-    </span>
+    <div style={{ marginBottom: 14 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 6,
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#ccd8e8' }}>{colLabel}</span>
+        <div style={{ display: 'flex', gap: 2 }}>
+          {(['All', 'NB', 'SB'] as DirectionFilter[]).map((d) => (
+            <button
+              key={d}
+              onClick={() => onDirectionChange(d)}
+              style={{
+                padding: '2px 8px',
+                fontSize: 10,
+                fontWeight: direction === d ? 700 : 400,
+                background: direction === d ? '#e94560' : '#0a2744',
+                color: direction === d ? '#fff' : '#7799bb',
+                border: `1px solid ${direction === d ? '#e94560' : '#1a3a60'}`,
+                borderRadius: 3,
+                cursor: 'pointer',
+              }}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {(direction === 'All' || direction === 'NB') && nbRows.length > 0 && (
+        <>
+          <div style={groupHeaderStyle}>Northbound (NB)</div>
+          <PerLaneTable columns={dynamicCols} rows={nbRows} />
+        </>
+      )}
+      {(direction === 'All' || direction === 'SB') && sbRows.length > 0 && (
+        <>
+          <div style={groupHeaderStyle}>Southbound (SB)</div>
+          <PerLaneTable columns={dynamicCols} rows={sbRows} />
+        </>
+      )}
+    </div>
   )
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const ComparisonScenario: React.FC<Props> = ({ onResult }) => {
+const ComparisonScenario: React.FC<Props> = ({ onResult, simDuration }) => {
   const [baseline, setBaseline] = useState<ScenarioDef>(makeDefault('toll'))
   const [scenarioA, setScenarioA] = useState<ScenarioDef>(makeDefault('corridor'))
   const [scenarioB, setScenarioB] = useState<ScenarioDef>(makeDefault('evasion'))
@@ -442,17 +543,23 @@ const ComparisonScenario: React.FC<Props> = ({ onResult }) => {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ComparisonResult | null>(null)
 
+  // Per-column direction filters
+  const [dirBase, setDirBase] = useState<DirectionFilter>('All')
+  const [dirA, setDirA] = useState<DirectionFilter>('All')
+  const [dirB, setDirB] = useState<DirectionFilter>('All')
+
   const handleRun = async () => {
     setLoading(true)
     setError(null)
     try {
-      const resp = await fetch('http://localhost:8000/api/v1/simulate/comparison', {
+      const resp = await fetch(API.comparison, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           baseline_scenario: { type: baseline.type, inputs: baseline.inputs },
           scenario_a: { type: scenarioA.type, inputs: scenarioA.inputs },
           scenario_b: { type: scenarioB.type, inputs: scenarioB.inputs },
+          simulation_duration_sec: simDuration,
         }),
       })
       if (!resp.ok) {
@@ -488,6 +595,8 @@ const ComparisonScenario: React.FC<Props> = ({ onResult }) => {
         <br />
         Each column uses the full sub-model for its type (BPR for corridor,
         elasticity for toll, quadratic correction for emission, deterrence for evasion).
+        <br />
+        Per-lane breakdowns can be filtered by direction: NB, SB, or All.
       </div>
 
       <div style={sectionLabelStyle}>Define Scenarios</div>
@@ -507,14 +616,18 @@ const ComparisonScenario: React.FC<Props> = ({ onResult }) => {
           fontWeight: 700,
           fontSize: 14,
           borderRadius: 6,
-          marginBottom: 16,
+          marginBottom: 8,
           marginTop: 4,
           opacity: loading ? 0.7 : 1,
           transition: 'background 0.15s',
+          border: 'none',
+          cursor: loading ? 'default' : 'pointer',
         }}
       >
         {loading ? 'Running...' : 'Run Comparison'}
       </button>
+
+      <SimulationLog isRunning={loading} simDuration={simDuration} />
 
       {error && (
         <div
@@ -541,10 +654,31 @@ const ComparisonScenario: React.FC<Props> = ({ onResult }) => {
               border: '1px solid #1a3a60',
               borderRadius: 6,
               padding: '8px 4px',
+              marginBottom: 14,
             }}
           >
             <ComparisonTable result={result} />
           </div>
+
+          <div style={{ ...sectionLabelStyle, marginBottom: 6 }}>Per-Lane Breakdown</div>
+          <PerLaneSection
+            colLabel={result.baseline.label}
+            perLane={result.baseline.per_lane ?? []}
+            direction={dirBase}
+            onDirectionChange={setDirBase}
+          />
+          <PerLaneSection
+            colLabel={result.scenario_a.label}
+            perLane={result.scenario_a.per_lane ?? []}
+            direction={dirA}
+            onDirectionChange={setDirA}
+          />
+          <PerLaneSection
+            colLabel={result.scenario_b.label}
+            perLane={result.scenario_b.per_lane ?? []}
+            direction={dirB}
+            onDirectionChange={setDirB}
+          />
         </div>
       )}
     </div>

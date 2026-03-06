@@ -1,10 +1,13 @@
 """
 Baseline in-memory data constants for the Scenario Lab toll corridor simulation.
-Four lanes: L1 (HOV_EXPRESS), L2 (ETC), L3 (ETC), L4 (CASH)
+Eight lanes across two directions:
+  Northbound (NB): NB-L1 (HOV Express), NB-L2 (ETC Fast), NB-L3 (ETC General), NB-L4 (Cash)
+  Southbound (SB): SB-L1 (HOV Express), SB-L2 (ETC Fast), SB-L3 (ETC General), SB-L4 (Cash)
 """
 
 BASELINE_LANES = {
-    "L1": {
+    # ── Northbound — inbound commuter traffic (morning peak, higher volumes) ──
+    "NB-L1": {
         "volume_veh_hr": 1020,
         "capacity_veh_hr": 1800,
         "free_flow_travel_time_sec": 90,
@@ -15,7 +18,7 @@ BASELINE_LANES = {
         "ev_fraction_pct": 18,
         "speed_kmh": 88,
     },
-    "L2": {
+    "NB-L2": {
         "volume_veh_hr": 1340,
         "capacity_veh_hr": 1800,
         "free_flow_travel_time_sec": 112,
@@ -26,7 +29,7 @@ BASELINE_LANES = {
         "ev_fraction_pct": 12,
         "speed_kmh": 72,
     },
-    "L3": {
+    "NB-L3": {
         "volume_veh_hr": 1280,
         "capacity_veh_hr": 1800,
         "free_flow_travel_time_sec": 112,
@@ -37,7 +40,7 @@ BASELINE_LANES = {
         "ev_fraction_pct": 10,
         "speed_kmh": 74,
     },
-    "L4": {
+    "NB-L4": {
         "volume_veh_hr": 560,
         "capacity_veh_hr": 800,
         "free_flow_travel_time_sec": 300,
@@ -48,15 +51,60 @@ BASELINE_LANES = {
         "ev_fraction_pct": 3,
         "speed_kmh": 22,
     },
+    # ── Southbound — outbound traffic (evening peak, ~15% lower volumes) ─────
+    "SB-L1": {
+        "volume_veh_hr": 880,
+        "capacity_veh_hr": 1800,
+        "free_flow_travel_time_sec": 90,
+        "evasion_rate_pct": 1.5,
+        "revenue_usd_hr": 2200,
+        "vehicle_volumes": {"car": 528, "truck": 0, "bus": 0, "van": 352},
+        "toll_rates_usd": {"car": 2.50, "truck": 0.00, "bus": 0.00, "van": 2.50},
+        "ev_fraction_pct": 16,
+        "speed_kmh": 90,
+    },
+    "SB-L2": {
+        "volume_veh_hr": 1160,
+        "capacity_veh_hr": 1800,
+        "free_flow_travel_time_sec": 108,
+        "evasion_rate_pct": 4.5,
+        "revenue_usd_hr": 4640,
+        "vehicle_volumes": {"car": 638, "truck": 290, "bus": 93, "van": 139},
+        "toll_rates_usd": {"car": 3.00, "truck": 7.50, "bus": 6.00, "van": 4.00},
+        "ev_fraction_pct": 11,
+        "speed_kmh": 75,
+    },
+    "SB-L3": {
+        "volume_veh_hr": 1080,
+        "capacity_veh_hr": 1800,
+        "free_flow_travel_time_sec": 108,
+        "evasion_rate_pct": 5.2,
+        "revenue_usd_hr": 4200,
+        "vehicle_volumes": {"car": 626, "truck": 238, "bus": 97, "van": 119},
+        "toll_rates_usd": {"car": 3.00, "truck": 7.50, "bus": 6.00, "van": 4.00},
+        "ev_fraction_pct": 9,
+        "speed_kmh": 76,
+    },
+    "SB-L4": {
+        "volume_veh_hr": 640,
+        "capacity_veh_hr": 800,
+        "free_flow_travel_time_sec": 280,
+        "evasion_rate_pct": 22.0,
+        "revenue_usd_hr": 2270,
+        "vehicle_volumes": {"car": 448, "truck": 64, "bus": 32, "van": 96},
+        "toll_rates_usd": {"car": 3.50, "truck": 9.00, "bus": 7.00, "van": 5.00},
+        "ev_fraction_pct": 2,
+        "speed_kmh": 19,
+    },
 }
 
 BASELINE_TOTALS = {
-    "total_volume_veh_hr": 4200,
-    "total_revenue_usd_hr": 14820,
-    "total_evasion_rate_pct": 7.2,
-    "total_CO2_kg_hr": 1842,
-    "total_NOx_g_hr": 9240,
-    "avg_toll_rate_usd": 3.10,
+    "total_volume_veh_hr": 7960,
+    "total_revenue_usd_hr": 28130,
+    "total_evasion_rate_pct": 6.1,
+    "total_CO2_kg_hr": 3490,
+    "total_NOx_g_hr": 17500,
+    "avg_toll_rate_usd": 3.05,
     "patrol_frequency_normalized": 0.35,
     "detection_accuracy": 0.72,
     "weather_factor": 1.0,

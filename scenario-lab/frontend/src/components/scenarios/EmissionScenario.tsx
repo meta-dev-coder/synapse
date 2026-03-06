@@ -1,13 +1,16 @@
 import React, { useState } from 'react'
+import { API } from '../../lib/api'
 import SliderInput from '../ui/SliderInput'
 import KpiCard from '../ui/KpiCard'
 import KpiGrid from '../ui/KpiGrid'
 import PerLaneTable, { type ColDef } from '../ui/PerLaneTable'
 import MethodologyPanel from '../ui/MethodologyPanel'
+import SimulationLog from '../SimulationLog'
 import type { SimulationResult } from '../../App'
 
 interface Props {
   onResult: (result: SimulationResult) => void
+  simDuration: number
 }
 
 interface VehicleMixPct {
@@ -47,6 +50,18 @@ const sectionLabelStyle: React.CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: 1,
   marginBottom: 10,
+}
+
+const groupHeaderStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: '#7799bb',
+  textTransform: 'uppercase',
+  letterSpacing: 1,
+  padding: '5px 0 3px',
+  borderBottom: '1px solid #1a3a60',
+  marginBottom: 4,
+  marginTop: 8,
 }
 
 const dataSourceStyle: React.CSSProperties = {
@@ -90,7 +105,7 @@ function buildLaneRows(perLane: EmissionLaneResult[]): Record<string, unknown>[]
   })
 }
 
-const EmissionScenario: React.FC<Props> = ({ onResult }) => {
+const EmissionScenario: React.FC<Props> = ({ onResult, simDuration }) => {
   const [vehicleMixPct, setVehicleMixPct] = useState<VehicleMixPct>({
     car: 60,
     truck: 20,
@@ -114,13 +129,14 @@ const EmissionScenario: React.FC<Props> = ({ onResult }) => {
     setLoading(true)
     setError(null)
     try {
-      const resp = await fetch('http://localhost:8000/api/v1/simulate/emission', {
+      const resp = await fetch(API.emission, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           vehicle_mix_pct: vehicleMixPct,
           speed_delta_kmh: speedDeltaKmh,
           idling_time_min: idlingTimeMin,
+          simulation_duration_sec: simDuration,
         }),
       })
       if (!resp.ok) {
@@ -137,12 +153,14 @@ const EmissionScenario: React.FC<Props> = ({ onResult }) => {
     }
   }
 
+  const nbRows = result ? buildLaneRows(result.per_lane.filter((r) => r.lane_id.startsWith('NB'))) : []
+  const sbRows = result ? buildLaneRows(result.per_lane.filter((r) => r.lane_id.startsWith('SB'))) : []
+
   return (
     <div>
-      {/* Data Sources */}
       <div style={dataSourceStyle}>
-        <strong style={{ color: '#ccd8e8' }}>Data Sources:</strong> Baseline: 1,842 kg CO₂/hr ·
-        9,240 g NOₓ/hr (weekday peak, 2.5 km corridor)
+        <strong style={{ color: '#ccd8e8' }}>Data Sources:</strong> Baseline: 3,490 kg CO₂/hr ·
+        17,500 g NOₓ/hr (weekday peak, 8 lanes NB + SB)
         <br />
         Emission factors: HBEFA-style reference factors per vehicle class
         <br />
@@ -210,7 +228,7 @@ const EmissionScenario: React.FC<Props> = ({ onResult }) => {
           fontWeight: 700,
           fontSize: 14,
           borderRadius: 6,
-          marginBottom: 16,
+          marginBottom: 8,
           opacity: loading ? 0.7 : 1,
           transition: 'background 0.15s',
           border: 'none',
@@ -219,6 +237,8 @@ const EmissionScenario: React.FC<Props> = ({ onResult }) => {
       >
         {loading ? 'Running...' : 'Run Simulation'}
       </button>
+
+      <SimulationLog isRunning={loading} simDuration={simDuration} />
 
       {error && (
         <div
@@ -269,11 +289,11 @@ const EmissionScenario: React.FC<Props> = ({ onResult }) => {
 
           {result.per_lane && result.per_lane.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ ...sectionLabelStyle, marginBottom: 6 }}>Per-Lane Breakdown</div>
-              <PerLaneTable
-                columns={LANE_COLS}
-                rows={buildLaneRows(result.per_lane)}
-              />
+              <div style={{ ...sectionLabelStyle, marginBottom: 4 }}>Per-Lane Breakdown</div>
+              <div style={groupHeaderStyle}>Northbound (NB)</div>
+              <PerLaneTable columns={LANE_COLS} rows={nbRows} />
+              <div style={groupHeaderStyle}>Southbound (SB)</div>
+              <PerLaneTable columns={LANE_COLS} rows={sbRows} />
             </div>
           )}
         </div>

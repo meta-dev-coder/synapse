@@ -23,6 +23,6 @@ async def toll_simulation(request: TollRequest) -> TollResult:
     - **enforcement_intensity**: Enforcement strength from 0 (none) to 1 (max)
     """
     try:
-        return simulate_toll(request)
+        return await simulate_toll(request)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

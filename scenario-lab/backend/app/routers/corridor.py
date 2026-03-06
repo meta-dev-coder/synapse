@@ -26,6 +26,6 @@ async def corridor_simulation(request: CorridorRequest) -> CorridorResult:
     - **weather_factor**: Weather degradation (1.0 = clear, 0.5 = severe)
     """
     try:
-        return simulate_corridor(request)
+        return await simulate_corridor(request)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

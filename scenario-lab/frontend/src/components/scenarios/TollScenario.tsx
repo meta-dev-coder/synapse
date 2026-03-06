@@ -1,14 +1,17 @@
 import React, { useState } from 'react'
+import { API } from '../../lib/api'
 import SliderInput from '../ui/SliderInput'
 import KpiCard from '../ui/KpiCard'
 import KpiGrid from '../ui/KpiGrid'
 import PerLaneTable, { type ColDef } from '../ui/PerLaneTable'
 import MethodologyPanel from '../ui/MethodologyPanel'
 import VehicleRateGrid, { type VehicleRates } from '../ui/VehicleRateGrid'
+import SimulationLog from '../SimulationLog'
 import type { SimulationResult } from '../../App'
 
 interface Props {
   onResult: (result: SimulationResult) => void
+  simDuration: number
 }
 
 interface TollLaneResult {
@@ -34,9 +37,7 @@ interface TollResult {
   [key: string]: unknown
 }
 
-const sectionStyle: React.CSSProperties = {
-  marginBottom: 18,
-}
+const sectionStyle: React.CSSProperties = { marginBottom: 18 }
 
 const sectionLabelStyle: React.CSSProperties = {
   fontSize: 11,
@@ -45,6 +46,18 @@ const sectionLabelStyle: React.CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: 1,
   marginBottom: 10,
+}
+
+const groupHeaderStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: '#7799bb',
+  textTransform: 'uppercase',
+  letterSpacing: 1,
+  padding: '5px 0 3px',
+  borderBottom: '1px solid #1a3a60',
+  marginBottom: 4,
+  marginTop: 8,
 }
 
 const dataSourceStyle: React.CSSProperties = {
@@ -89,10 +102,8 @@ const LANE_COLS: ColDef[] = [
 ]
 
 const LANE_TYPE_LABELS: Record<string, string> = {
-  L1: 'HOV',
-  L2: 'ETC',
-  L3: 'ETC',
-  L4: 'Cash',
+  'NB-L1': 'HOV',  'NB-L2': 'ETC Fast', 'NB-L3': 'ETC Gen', 'NB-L4': 'Cash',
+  'SB-L1': 'HOV',  'SB-L2': 'ETC Fast', 'SB-L3': 'ETC Gen', 'SB-L4': 'Cash',
 }
 
 function buildLaneRows(perLane: TollLaneResult[]): Record<string, unknown>[] {
@@ -111,7 +122,7 @@ function buildLaneRows(perLane: TollLaneResult[]): Record<string, unknown>[] {
   })
 }
 
-const TollScenario: React.FC<Props> = ({ onResult }) => {
+const TollScenario: React.FC<Props> = ({ onResult, simDuration }) => {
   const [vehicleRates, setVehicleRates] = useState<VehicleRates>({
     car: 3.0,
     truck: 7.5,
@@ -134,7 +145,7 @@ const TollScenario: React.FC<Props> = ({ onResult }) => {
     setLoading(true)
     setError(null)
     try {
-      const resp = await fetch('http://localhost:8000/api/v1/simulate/toll', {
+      const resp = await fetch(API.toll, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -142,6 +153,7 @@ const TollScenario: React.FC<Props> = ({ onResult }) => {
           peak_multiplier: peakMultiplier,
           ev_exemption: evExemption,
           enforcement_intensity: enforcementIntensity,
+          simulation_duration_sec: simDuration,
         }),
       })
       if (!resp.ok) {
@@ -158,14 +170,16 @@ const TollScenario: React.FC<Props> = ({ onResult }) => {
     }
   }
 
+  const nbRows = result ? buildLaneRows(result.per_lane.filter((r) => r.lane_id.startsWith('NB'))) : []
+  const sbRows = result ? buildLaneRows(result.per_lane.filter((r) => r.lane_id.startsWith('SB'))) : []
+
   return (
     <div>
-      {/* Data Sources */}
       <div style={dataSourceStyle}>
         <strong style={{ color: '#ccd8e8' }}>Data Sources:</strong> Baseline: A10-West Toll Plaza
-        · Weekday AM Peak (1 hr) · 4,200 veh/hr total
+        · Weekday AM/PM Peak · 7,960 veh/hr total (8 lanes, NB + SB)
         <br />
-        Baseline revenue: $14,820/hr · Source: Synthetic POC corridor (Amsterdam scale)
+        Baseline revenue: $28,130/hr · Source: Synthetic POC corridor (Amsterdam scale)
         <br />
         Elasticities sourced from VTPI Transport Demand Estimation literature.
       </div>
@@ -229,7 +243,7 @@ const TollScenario: React.FC<Props> = ({ onResult }) => {
           fontWeight: 700,
           fontSize: 14,
           borderRadius: 6,
-          marginBottom: 16,
+          marginBottom: 8,
           opacity: loading ? 0.7 : 1,
           transition: 'background 0.15s',
           border: 'none',
@@ -238,6 +252,8 @@ const TollScenario: React.FC<Props> = ({ onResult }) => {
       >
         {loading ? 'Running...' : 'Run Simulation'}
       </button>
+
+      <SimulationLog isRunning={loading} simDuration={simDuration} />
 
       {error && (
         <div
@@ -287,11 +303,11 @@ const TollScenario: React.FC<Props> = ({ onResult }) => {
 
           {result.per_lane && result.per_lane.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ ...sectionLabelStyle, marginBottom: 6 }}>Per-Lane Breakdown</div>
-              <PerLaneTable
-                columns={LANE_COLS}
-                rows={buildLaneRows(result.per_lane)}
-              />
+              <div style={{ ...sectionLabelStyle, marginBottom: 4 }}>Per-Lane Breakdown</div>
+              <div style={groupHeaderStyle}>Northbound (NB)</div>
+              <PerLaneTable columns={LANE_COLS} rows={nbRows} />
+              <div style={groupHeaderStyle}>Southbound (SB)</div>
+              <PerLaneTable columns={LANE_COLS} rows={sbRows} />
             </div>
           )}
         </div>

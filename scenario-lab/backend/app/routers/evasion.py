@@ -26,6 +26,6 @@ async def evasion_simulation(request: EvasionRequest) -> EvasionResult:
     - **patrol_frequency**: Normalized patrol presence (0 = none, 1 = maximum)
     """
     try:
-        return simulate_evasion(request)
+        return await simulate_evasion(request)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

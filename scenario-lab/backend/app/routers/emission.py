@@ -26,6 +26,6 @@ async def emission_simulation(request: EmissionRequest) -> EmissionResult:
     - **idling_time_min**: Additional idling time per vehicle (minutes)
     """
     try:
-        return simulate_emission(request)
+        return await simulate_emission(request)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

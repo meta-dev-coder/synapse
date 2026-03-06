@@ -1,0 +1,31 @@
+name: Deploy Backend to EC2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy via SSM Run Command
+        run: |
+          aws ssm send-command \
+            --instance-ids i-068311dbdf46e0e4c \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "cd /home/ubuntu/synapse && git pull origin main",
+              "cd /home/ubuntu/synapse/backend && source venv/bin/activate && pip install -r requirements.txt",
+              "sudo systemctl restart scenario-lab-api"
+            ]' \
+            --output text

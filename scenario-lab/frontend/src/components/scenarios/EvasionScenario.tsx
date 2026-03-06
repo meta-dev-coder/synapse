@@ -1,13 +1,16 @@
 import React, { useState } from 'react'
+import { API } from '../../lib/api'
 import SliderInput from '../ui/SliderInput'
 import KpiCard from '../ui/KpiCard'
 import KpiGrid from '../ui/KpiGrid'
 import PerLaneTable, { type ColDef } from '../ui/PerLaneTable'
 import MethodologyPanel from '../ui/MethodologyPanel'
+import SimulationLog from '../SimulationLog'
 import type { SimulationResult } from '../../App'
 
 interface Props {
   onResult: (result: SimulationResult) => void
+  simDuration: number
 }
 
 interface EvasionLaneResult {
@@ -36,6 +39,18 @@ const sectionLabelStyle: React.CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: 1,
   marginBottom: 10,
+}
+
+const groupHeaderStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  color: '#7799bb',
+  textTransform: 'uppercase',
+  letterSpacing: 1,
+  padding: '5px 0 3px',
+  borderBottom: '1px solid #1a3a60',
+  marginBottom: 4,
+  marginTop: 8,
 }
 
 const dataSourceStyle: React.CSSProperties = {
@@ -77,7 +92,7 @@ function buildLaneRows(perLane: EvasionLaneResult[]): Record<string, unknown>[] 
   }))
 }
 
-const EvasionScenario: React.FC<Props> = ({ onResult }) => {
+const EvasionScenario: React.FC<Props> = ({ onResult, simDuration }) => {
   const [tollIncreasePct, setTollIncreasePct] = useState(20)
   const [detectionAccuracy, setDetectionAccuracy] = useState(0.72)
   const [patrolFrequency, setPatrolFrequency] = useState(0.35)
@@ -90,13 +105,14 @@ const EvasionScenario: React.FC<Props> = ({ onResult }) => {
     setLoading(true)
     setError(null)
     try {
-      const resp = await fetch('http://localhost:8000/api/v1/simulate/evasion', {
+      const resp = await fetch(API.evasion, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toll_increase_pct: tollIncreasePct,
           detection_accuracy: detectionAccuracy,
           patrol_frequency: patrolFrequency,
+          simulation_duration_sec: simDuration,
         }),
       })
       if (!resp.ok) {
@@ -113,14 +129,18 @@ const EvasionScenario: React.FC<Props> = ({ onResult }) => {
     }
   }
 
+  const nbRows = result ? buildLaneRows(result.per_lane.filter((r) => r.lane_id.startsWith('NB'))) : []
+  const sbRows = result ? buildLaneRows(result.per_lane.filter((r) => r.lane_id.startsWith('SB'))) : []
+
   return (
     <div>
-      {/* Data Sources */}
       <div style={dataSourceStyle}>
-        <strong style={{ color: '#ccd8e8' }}>Data Sources:</strong> Baseline evasion: L1 1.2% ·
-        L2 3.8% · L3 4.1% · L4 18.5%
+        <strong style={{ color: '#ccd8e8' }}>Data Sources:</strong> Baseline evasion:
+        NB-L1 1.2% · NB-L2 3.8% · NB-L3 4.1% · NB-L4 18.5%
         <br />
-        Baseline leakage: $1,067/hr (7.2% corridor avg)
+        SB-L1 1.5% · SB-L2 4.5% · SB-L3 5.2% · SB-L4 22.0%
+        <br />
+        Total baseline leakage: $2,050/hr (8 lanes, NB + SB)
         <br />
         Evasion elasticities: Car 0.35 · Truck 0.15 · Bus 0.08 · Van 0.28
       </div>
@@ -172,7 +192,7 @@ const EvasionScenario: React.FC<Props> = ({ onResult }) => {
           fontWeight: 700,
           fontSize: 14,
           borderRadius: 6,
-          marginBottom: 16,
+          marginBottom: 8,
           opacity: loading ? 0.7 : 1,
           transition: 'background 0.15s',
           border: 'none',
@@ -181,6 +201,8 @@ const EvasionScenario: React.FC<Props> = ({ onResult }) => {
       >
         {loading ? 'Running...' : 'Run Simulation'}
       </button>
+
+      <SimulationLog isRunning={loading} simDuration={simDuration} />
 
       {error && (
         <div
@@ -239,11 +261,11 @@ const EvasionScenario: React.FC<Props> = ({ onResult }) => {
 
           {result.per_lane && result.per_lane.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ ...sectionLabelStyle, marginBottom: 6 }}>Per-Lane Breakdown</div>
-              <PerLaneTable
-                columns={LANE_COLS}
-                rows={buildLaneRows(result.per_lane)}
-              />
+              <div style={{ ...sectionLabelStyle, marginBottom: 4 }}>Per-Lane Breakdown</div>
+              <div style={groupHeaderStyle}>Northbound (NB)</div>
+              <PerLaneTable columns={LANE_COLS} rows={nbRows} />
+              <div style={groupHeaderStyle}>Southbound (SB)</div>
+              <PerLaneTable columns={LANE_COLS} rows={sbRows} />
             </div>
           )}
         </div>

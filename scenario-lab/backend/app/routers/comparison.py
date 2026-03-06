@@ -36,6 +36,6 @@ async def comparison_simulation(request: ComparisonRequest) -> ComparisonResult:
     ```
     """
     try:
-        return simulate_comparison(request)
+        return await simulate_comparison(request)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
