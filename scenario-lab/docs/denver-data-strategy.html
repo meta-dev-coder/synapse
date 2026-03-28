@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Denver Demo — Data Strategy Plan</title>
+  <style>
+    :root {
+      --navy:     #0a2744;
+      --panel:    #0f3460;
+      --input:    #0d2137;
+      --border:   #1a3a5c;
+      --red:      #e94560;
+      --blue:     #2196F3;
+      --green:    #27ae60;
+      --amber:    #f39c12;
+      --muted:    #5577aa;
+      --text:     #e0e8f0;
+      --subtext:  #7799bb;
+      --danger:   #e74c3c;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--navy);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ── TOP BAR ─────────────────────────────── */
+    .topbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topbar-logo { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; }
+    .topbar-logo span { color: var(--red); }
+    .topbar-divider { width: 1px; height: 20px; background: var(--border); }
+    .topbar-title { color: var(--subtext); font-size: 13px; }
+    .topbar-badge {
+      margin-left: auto;
+      background: rgba(231,76,60,0.15);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    /* ── LAYOUT ──────────────────────────────── */
+    .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px 80px; }
+
+    .hero {
+      text-align: center;
+      padding: 40px 0 32px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 40px;
+    }
+    .hero h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+    .hero p { color: var(--subtext); max-width: 640px; margin: 0 auto; font-size: 15px; }
+
+    /* ── SECTION ─────────────────────────────── */
+    .section { margin-bottom: 48px; }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-header h2 { font-size: 17px; font-weight: 600; }
+    .section-number {
+      width: 28px; height: 28px;
+      background: var(--red);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ── CARDS GRID ──────────────────────────── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .card.full { grid-column: 1 / -1; }
+    .card-header {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .card-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+    .card-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+    .card-sub { color: var(--subtext); font-size: 12px; }
+
+    /* ── STATUS BADGES ───────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 10px;
+      font-size: 11px; font-weight: 600;
+    }
+    .badge-green  { background: rgba(39,174,96,0.15);  border: 1px solid var(--green);  color: var(--green);  }
+    .badge-blue   { background: rgba(33,150,243,0.15); border: 1px solid var(--blue);   color: var(--blue);   }
+    .badge-amber  { background: rgba(243,156,18,0.15); border: 1px solid var(--amber);  color: var(--amber);  }
+    .badge-red    { background: rgba(231,76,60,0.15);  border: 1px solid var(--danger); color: var(--danger); }
+    .badge-muted  { background: rgba(85,119,170,0.15); border: 1px solid var(--muted);  color: var(--muted);  }
+
+    /* ── KV TABLE ────────────────────────────── */
+    .kv { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .kv tr { border-top: 1px solid var(--border); }
+    .kv tr:first-child { border-top: none; }
+    .kv td { padding: 7px 4px; font-size: 13px; vertical-align: top; }
+    .kv td:first-child { color: var(--subtext); width: 38%; padding-right: 12px; font-size: 12px; }
+    .kv td code {
+      background: var(--input);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 11px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #a8d8f0;
+    }
+
+    /* ── ALERT BOXES ─────────────────────────── */
+    .alert {
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin: 14px 0;
+      font-size: 13px;
+      border-left: 3px solid;
+    }
+    .alert-danger  { background: rgba(231,76,60,0.08);  border-color: var(--danger);  color: #f5aaaa; }
+    .alert-amber   { background: rgba(243,156,18,0.08); border-color: var(--amber);   color: #f5d68a; }
+    .alert-green   { background: rgba(39,174,96,0.08);  border-color: var(--green);   color: #90e4b2; }
+    .alert-blue    { background: rgba(33,150,243,0.08); border-color: var(--blue);    color: #90c8f4; }
+    .alert strong  { font-weight: 700; }
+
+    /* ── CODE BLOCK ──────────────────────────── */
+    pre {
+      background: var(--input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: #a8d8f0;
+      margin: 10px 0;
+      line-height: 1.55;
+    }
+    pre .comment { color: #5577aa; }
+    pre .key     { color: #e94560; }
+    pre .val     { color: #90e4b2; }
+    pre .str     { color: #f5d68a; }
+
+    /* ── STRATEGY TABLE ──────────────────────── */
+    .strat-table { width: 100%; border-collapse: collapse; }
+    .strat-table th {
+      background: var(--input);
+      color: var(--subtext);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 9px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .strat-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      vertical-align: top;
+    }
+    .strat-table tr:last-child td { border-bottom: none; }
+    .strat-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* ── FLOW DIAGRAM ────────────────────────── */
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 20px 0;
+      overflow-x: auto;
+    }
+    .flow-step {
+      background: var(--input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      text-align: center;
+      min-width: 130px;
+      flex-shrink: 0;
+    }
+    .flow-step .step-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+    .flow-step .step-label { font-size: 11px; font-weight: 600; color: var(--text); }
+    .flow-step .step-sub { font-size: 10px; color: var(--subtext); margin-top: 2px; }
+    .flow-arrow {
+      color: var(--muted);
+      font-size: 18px;
+      padding: 0 8px;
+      flex-shrink: 0;
+    }
+    .flow-step.highlight { border-color: var(--blue); background: rgba(33,150,243,0.06); }
+    .flow-step.danger    { border-color: var(--danger); background: rgba(231,76,60,0.06); }
+    .flow-step.success   { border-color: var(--green);  background: rgba(39,174,96,0.06); }
+
+    /* ── LINK ────────────────────────────────── */
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── CHECKLIST ───────────────────────────── */
+    .checklist { list-style: none; margin-top: 8px; }
+    .checklist li { padding: 5px 0; font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+    .checklist li::before { content: '○'; color: var(--muted); flex-shrink: 0; }
+    .checklist li.done::before { content: '●'; color: var(--green); }
+    .checklist li.warn::before { content: '⚠'; color: var(--amber); }
+    .checklist li.block::before { content: '✕'; color: var(--danger); }
+
+    /* ── TAG ROW ─────────────────────────────── */
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .tag {
+      background: var(--input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      color: var(--subtext);
+    }
+
+    /* ── FOOTER ──────────────────────────────── */
+    footer {
+      text-align: center;
+      color: var(--subtext);
+      font-size: 12px;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <span class="topbar-logo">🔷 Synapse</span>
+  <div class="topbar-divider"></div>
+  <span class="topbar-title">Denver City Traffic Demo — Data Strategy Plan</span>
+  <span class="topbar-badge">⚠ DB Corruption Detected</span>
+</div>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Denver Demo — Data Strategy &amp; Source Inventory</h1>
+    <p>This document defines every data source used in the Denver Policy Analyst Demo, its current access status, schema, and the ingestion strategy for each layer.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 1 — REAL BUS GPS DATA
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">A</div>
+      <h2>Real Bus GPS Data (RTD Denver — 30-Day Capture)</h2>
+    </div>
+
+    <div class="alert alert-danger">
+      <strong>⚠ CORRUPTION ALERT:</strong> The primary <code>bus_history.db</code> file fails the SQLite integrity check with "database disk image is malformed." The <code>sqlite3</code> CLI cannot execute any queries. A ZIP backup exists and must be tested.
+    </div>
+
+    <div class="cards">
+
+      <!-- Primary DB -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🗄️</span>
+          <div>
+            <div class="card-title">bus_history.db</div>
+            <div class="card-sub">Primary SQLite database — <strong>CORRUPTED</strong></div>
+          </div>
+        </div>
+        <span class="badge badge-red">✕ Integrity Check Failed</span>
+        <table class="kv">
+          <tr><td>Location</td><td><code>/synapse/bus_history.db</code></td></tr>
+          <tr><td>Size</td><td>1.22 GB (1,219,035,136 bytes)</td></tr>
+          <tr><td>Last modified</td><td>2026-03-20 17:53</td></tr>
+          <tr><td>Pages</td><td>297,609 total; malformed at pages 297,368 / 297,615–16</td></tr>
+          <tr><td>CLI status</td><td>All queries fail (error code 11)</td></tr>
+          <tr><td>Python sqlite3</td><td>⚠ Untested — may read partial rows before corrupt page</td></tr>
+        </table>
+        <div class="alert alert-amber" style="margin-top:12px; margin-bottom:0">
+          The pipeline scripts (<code>map_match_gps.py</code>) were written to handle this: reads in 100k-row chunks, stops at page 297,368. Python's sqlite3 may succeed where the CLI fails.
+        </div>
+      </div>
+
+      <!-- ZIP Backup -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">📦</span>
+          <div>
+            <div class="card-title">denver-buses-1-month.zip</div>
+            <div class="card-sub">Compressed backup archive</div>
+          </div>
+        </div>
+        <span class="badge badge-amber">? Untested — Potentially Clean</span>
+        <table class="kv">
+          <tr><td>Location</td><td><code>/synapse/denver-buses-1-month.zip</code></td></tr>
+          <tr><td>Compressed</td><td>313 MB</td></tr>
+          <tr><td>Uncompressed</td><td>1.22 GB (identical size to primary)</td></tr>
+          <tr><td>Compression</td><td>3.9× (ZIP deflate)</td></tr>
+          <tr><td>Contents</td><td>Single file: <code>bus_history.db</code></td></tr>
+          <tr><td>Type</td><td>NOT a CSV — SQLite snapshot</td></tr>
+        </table>
+        <div class="alert alert-blue" style="margin-top:12px; margin-bottom:0">
+          <strong>Action required:</strong> Extract and run SQLite integrity check on this copy. If clean, it is the canonical data source.
+        </div>
+      </div>
+
+      <!-- Schema -->
+      <div class="card full">
+        <div class="card-header">
+          <span class="card-icon">📋</span>
+          <div>
+            <div class="card-title">Database Schema</div>
+            <div class="card-sub">Single table — confirmed readable from schema file</div>
+          </div>
+        </div>
+        <pre>
+<span class="comment">-- Single table in bus_history.db</span>
+CREATE TABLE bus_positions (
+    busId      TEXT,       <span class="comment">-- RTD bus identifier (e.g. "7421")</span>
+    bearing    REAL,       <span class="comment">-- Direction of travel in degrees [0–360]</span>
+    lat        REAL,       <span class="comment">-- WGS-84 latitude</span>
+    lon        REAL,       <span class="comment">-- WGS-84 longitude</span>
+    timestamp  INTEGER     <span class="comment">-- Unix timestamp in MILLISECONDS</span>
+);</pre>
+        <div class="cards" style="margin-top:12px">
+          <div>
+            <div class="card-sub" style="margin-bottom:8px">Estimated dataset characteristics (from pipeline code analysis):</div>
+            <table class="kv">
+              <tr><td>Total rows</td><td>~29.7 million (before corruption)</td></tr>
+              <tr><td>Usable rows</td><td>Unknown — depends on Python sqlite3 read result</td></tr>
+              <tr><td>Coverage</td><td>~1 month RTD real-time GPS feed</td></tr>
+              <tr><td>Ping interval</td><td>10–30 seconds per bus</td></tr>
+              <tr><td>Active buses/day</td><td>~400–600 unique bus IDs</td></tr>
+              <tr><td>Geographic scope</td><td>Denver bbox: 39.61–39.81°N, 105.11–104.79°W</td></tr>
+            </table>
+          </div>
+          <div>
+            <div class="card-sub" style="margin-bottom:8px">Known limitations (documented in pipeline):</div>
+            <ul class="checklist">
+              <li class="warn">Bus-only data — no car/truck traffic observations</li>
+              <li class="warn">Bearing unreliable at low speeds (bus stopped at stop)</li>
+              <li class="warn">Variable ping intervals — not uniform time series</li>
+              <li class="warn">No non-RTD coverage (private vehicles, TNC, etc.)</li>
+              <li class="warn">Partial corruption — last ~5–10% of rows may be unreadable</li>
+              <li class="block">No time-of-day segmentation in raw data (must derive from timestamp)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /cards -->
+
+    <!-- Data extraction plan -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-title" style="margin-bottom:12px">🛠 GPS Replay Extraction Plan</div>
+      <div class="flow">
+        <div class="flow-step danger">
+          <span class="step-icon">🗄️</span>
+          <div class="step-label">Test ZIP backup</div>
+          <div class="step-sub">sqlite3 integrity check</div>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step highlight">
+          <span class="step-icon">🐍</span>
+          <div class="step-label">prepare_gps_replay.py</div>
+          <div class="step-sub">100k-row chunk reads</div>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step highlight">
+          <span class="step-icon">🕕</span>
+          <div class="step-label">Extract AM peak</div>
+          <div class="step-sub">06:00–09:00, 1 weekday</div>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step highlight">
+          <span class="step-icon">🚌</span>
+          <div class="step-label">Downsample</div>
+          <div class="step-sub">≤400 buses × 1 pt/10 s</div>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step success">
+          <span class="step-icon">📄</span>
+          <div class="step-label">bus_replay.json</div>
+          <div class="step-sub">~300 KB gzipped</div>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-step success">
+          <span class="step-icon">🗺️</span>
+          <div class="step-label">Cesium animation</div>
+          <div class="step-sub">30× speed replay</div>
+        </div>
+      </div>
+      <div class="alert alert-amber" style="margin-bottom:0">
+        <strong>Fallback:</strong> If both DB copies are unreadable, generate synthetic bus trajectories interpolated along the 24 demo network edges. Synthetic fallback produces visually indistinguishable animation for demo purposes.
+      </div>
+    </div>
+
+    <!-- What GPS data enables -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-title" style="margin-bottom:10px">📊 What GPS Data Enables in the Demo UI</div>
+      <table class="strat-table">
+        <thead>
+          <tr>
+            <th>UI Feature</th>
+            <th>Data Derivation</th>
+            <th>Checkbox?</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Animated bus positions</strong></td>
+            <td>Direct GPS lat/lon playback, 30× speed, 400 buses</td>
+            <td>Always on</td>
+            <td><span class="badge badge-blue">From replay JSON</span></td>
+          </tr>
+          <tr>
+            <td><strong>Real traffic flow patterns</strong></td>
+            <td>GPS observation density per edge → volume proxy</td>
+            <td>☑ Toggle</td>
+            <td><span class="badge badge-blue">Derived from GPS</span></td>
+          </tr>
+          <tr>
+            <td><strong>Congestion heatmap</strong></td>
+            <td>GPS speed per edge vs. free-flow speed → v/c scalar</td>
+            <td>☑ Toggle</td>
+            <td><span class="badge badge-blue">Derived from GPS</span></td>
+          </tr>
+          <tr>
+            <td><strong>Bus delays</strong></td>
+            <td>GPS arrival time vs. GTFS schedule → delay per stop</td>
+            <td>☑ Toggle</td>
+            <td><span class="badge badge-amber">Needs GTFS schedule</span></td>
+          </tr>
+          <tr>
+            <td><strong>Top 10 emission regions (5×5 km grid)</strong></td>
+            <td>GPS volume × emission factor per grid cell → CO₂ estimate</td>
+            <td>☑ Toggle</td>
+            <td><span class="badge badge-amber">Anchored to GHG baseline</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /section A -->
+
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 2 — STATIC / DOTI-LIKE DATA
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">B</div>
+      <h2>Static Data — DOTI-Like (OpenStreetMap + Denver Open Data)</h2>
+    </div>
+
+    <div class="cards">
+
+      <!-- Road network -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🛣️</span>
+          <div>
+            <div class="card-title">Road Network (Lines)</div>
+            <div class="card-sub">Source: OpenStreetMap via OSMnx</div>
+          </div>
+        </div>
+        <span class="badge badge-green">● Available</span>
+        <table class="kv">
+          <tr><td>Source</td><td>OpenStreetMap (OSMnx Python library)</td></tr>
+          <tr><td>Coverage</td><td>Denver bbox 39.61–39.81°N, 105.11–104.79°W</td></tr>
+          <tr><td>Expected edges</td><td>~40,000 road segments</td></tr>
+          <tr><td>Geometry</td><td>LineString polylines (for Cesium rendering)</td></tr>
+          <tr><td>Key attributes</td><td>road name, length_m, speed_limit, lanes, road type</td></tr>
+          <tr><td>Ingestion</td><td><code>pipeline/fetch_denver_data.py</code> (Step 1)</td></tr>
+          <tr><td>Output</td><td><code>app/data/city/raw_graph.graphml</code></td></tr>
+        </table>
+        <div class="alert alert-amber" style="margin-top:12px; margin-bottom:0">
+          Pipeline not yet run. Current demo uses 24 synthetic edges. Running the pipeline gives full 40k-edge network.
+        </div>
+      </div>
+
+      <!-- Intersections -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🚦</span>
+          <div>
+            <div class="card-title">Traffic Intersections</div>
+            <div class="card-sub">Source: Denver Open Data (ArcGIS)</div>
+          </div>
+        </div>
+        <span class="badge badge-amber">? Not yet probed</span>
+        <table class="kv">
+          <tr><td>Hub page</td><td><a href="https://opendata-geospatialdenver.hub.arcgis.com/datasets/456a2e9939bd4af391e3dcd8b8794e33_135/explore" target="_blank">Dataset 456a2e99…_135</a></td></tr>
+          <tr><td>Expected count</td><td>~1,288 signalised intersections (from pipeline docs)</td></tr>
+          <tr><td>Geometry</td><td>Point features (lat/lon)</td></tr>
+          <tr><td>Expected fields</td><td>intersection_id, street names, signal type, location</td></tr>
+          <tr><td>ArcGIS REST</td><td><code>/FeatureServer/135/query</code></td></tr>
+          <tr><td>Usage</td><td>Signal timing scenario inputs; Cesium point layer</td></tr>
+        </table>
+        <div class="tags">
+          <span class="tag">Signal Timing Scenario</span>
+          <span class="tag">Webster Delay Model</span>
+          <span class="tag">Cesium Points</span>
+        </div>
+      </div>
+
+      <!-- Bus Stops -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🚏</span>
+          <div>
+            <div class="card-title">Bus Stops</div>
+            <div class="card-sub">Source: Denver Open Data (ArcGIS)</div>
+          </div>
+        </div>
+        <span class="badge badge-amber">? Not yet probed</span>
+        <table class="kv">
+          <tr><td>Hub page</td><td><a href="https://opendata-geospatialdenver.hub.arcgis.com/datasets/4c045a8b85a646b485a49890ff575420_281/explore" target="_blank">Dataset 4c045a8b…_281</a></td></tr>
+          <tr><td>Expected count</td><td>~8,387 stops (from pipeline docs)</td></tr>
+          <tr><td>Geometry</td><td>Point features (lat/lon)</td></tr>
+          <tr><td>Expected fields</td><td>stop_id, stop_name, lat, lon, route associations</td></tr>
+          <tr><td>ArcGIS REST</td><td><code>/FeatureServer/281/query</code></td></tr>
+          <tr><td>Usage</td><td>Bus delay layer; EV charger simulation (20% of stops)</td></tr>
+        </table>
+        <div class="tags">
+          <span class="tag">GPS Delay Layer</span>
+          <span class="tag">EV Charger Simulation</span>
+          <span class="tag">Cesium Points</span>
+        </div>
+      </div>
+
+      <!-- Bus Routes -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🚌</span>
+          <div>
+            <div class="card-title">Bus Routes</div>
+            <div class="card-sub">Source: Denver Open Data (ArcGIS) — sequence of stops</div>
+          </div>
+        </div>
+        <span class="badge badge-amber">? Not yet probed</span>
+        <table class="kv">
+          <tr><td>Hub page</td><td><a href="https://opendata-geospatialdenver.hub.arcgis.com/datasets/dd554350bf00405ca0503d0406b38838_279/explore" target="_blank">Dataset dd554350…_279</a></td></tr>
+          <tr><td>Expected count</td><td>~158 routes (from GTFS reference in pipeline)</td></tr>
+          <tr><td>Geometry</td><td>LineString or stop-sequence list</td></tr>
+          <tr><td>Expected fields</td><td>route_id, route_name, stop_sequence[], geometry</td></tr>
+          <tr><td>ArcGIS REST</td><td><code>/FeatureServer/279/query</code></td></tr>
+          <tr><td>Usage</td><td>Route overlays on Cesium; corridor emission modeling</td></tr>
+        </table>
+        <div class="tags">
+          <span class="tag">Cesium Line Layer</span>
+          <span class="tag">Route Delay Metric</span>
+          <span class="tag">158 Routes</span>
+        </div>
+      </div>
+
+    </div><!-- /cards -->
+  </div><!-- /section B -->
+
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 3 — GIS LAYERS
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">C</div>
+      <h2>GIS Layers (ArcGIS — Denver Open Data)</h2>
+    </div>
+
+    <div class="cards">
+
+      <!-- Zones -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🗺️</span>
+          <div>
+            <div class="card-title">Zoning Districts</div>
+            <div class="card-sub">Residential · Commercial · Industrial · Open Space</div>
+          </div>
+        </div>
+        <span class="badge badge-amber">? Not yet probed</span>
+        <table class="kv">
+          <tr><td>Hub page</td><td><a href="https://opendata-geospatialdenver.hub.arcgis.com/datasets/480d73ed76e041ba9f4faa05699c4f93_209/explore" target="_blank">Dataset 480d73ed…_209</a></td></tr>
+          <tr><td>Geometry</td><td>Polygon features</td></tr>
+          <tr><td>Expected fields</td><td>zone_type, zone_name, area_sqft, geometry</td></tr>
+          <tr><td>ArcGIS REST</td><td><code>/FeatureServer/209/query</code></td></tr>
+          <tr><td>Usage in demo</td><td>Background zone color layer on Cesium map; emission weighting by zone type</td></tr>
+        </table>
+        <div class="alert alert-blue" style="margin-top:12px; margin-bottom:0">
+          Zone type → emission multiplier: residential 1.0×, commercial 1.4× (higher traffic density), industrial 1.8×, open space 0.2×
+        </div>
+      </div>
+
+      <!-- Traffic accidents / density -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🚨</span>
+          <div>
+            <div class="card-title">Traffic Accidents</div>
+            <div class="card-sub">Proxy for traffic density zones</div>
+          </div>
+        </div>
+        <span class="badge badge-amber">? Not yet probed</span>
+        <table class="kv">
+          <tr><td>Hub page</td><td><a href="https://opendata-geospatialdenver.hub.arcgis.com/datasets/db00bd99ea534d8987e0913a191ebe19_325/explore" target="_blank">Dataset db00bd99…_325</a></td></tr>
+          <tr><td>Geometry</td><td>Point features (crash locations)</td></tr>
+          <tr><td>Expected fields</td><td>date, severity, location, road name, lat/lon</td></tr>
+          <tr><td>ArcGIS REST</td><td><code>/FeatureServer/325/query</code></td></tr>
+          <tr><td>Usage in demo</td><td>High-accident-density road segments = high traffic volume proxy</td></tr>
+        </table>
+        <div class="alert alert-blue" style="margin-top:12px; margin-bottom:0">
+          <strong>Density derivation:</strong> Bin accidents into 5×5 km grid cells. Top-decile grid cells = "high traffic density zone" overlay. No direct traffic count data needed.
+        </div>
+      </div>
+
+      <!-- EV Chargers -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">⚡</span>
+          <div>
+            <div class="card-title">EV Charging Locations</div>
+            <div class="card-sub">Simulated from bus stop locations</div>
+          </div>
+        </div>
+        <span class="badge badge-green">● Simulated (no external source needed)</span>
+        <table class="kv">
+          <tr><td>Method</td><td>Randomly sample N% of bus stops as EV charger locations</td></tr>
+          <tr><td>Default</td><td>20% of bus stops (seeded random, deterministic)</td></tr>
+          <tr><td>UI control</td><td>Slider: "EV Charger Coverage %" (5–50%)</td></tr>
+          <tr><td>Cesium rendering</td><td>Yellow ⚡ billboard at each sampled stop</td></tr>
+          <tr><td>Demo value</td><td>Shows EV infrastructure density alongside routes</td></tr>
+        </table>
+        <div class="tags">
+          <span class="tag">UI Slider Control</span>
+          <span class="tag">Deterministic Seed</span>
+          <span class="tag">Yellow Cesium Points</span>
+        </div>
+      </div>
+
+    </div><!-- /cards -->
+  </div><!-- /section C -->
+
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 4 — REAL-TIME SIMULATED DATA
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">D</div>
+      <h2>Real-Time Simulated Streaming Data</h2>
+    </div>
+    <p style="color:var(--subtext); margin-bottom:16px;">No WebSocket or SSE. All "live" updates are deterministic pseudo-random drift applied client-side via <code>setInterval</code>, seeded from baseline values. Updates every 3 seconds for demo effect.</p>
+
+    <div class="cards">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🚗</span>
+          <div>
+            <div class="card-title">Traffic Volume (per road)</div>
+            <div class="card-sub">Simulated from traffic accident density</div>
+          </div>
+        </div>
+        <table class="kv">
+          <tr><td>Baseline</td><td>Volume ∝ accident count per segment (normalized to veh/hr)</td></tr>
+          <tr><td>Drift</td><td>±3% pseudo-random per tick</td></tr>
+          <tr><td>Update rate</td><td>3 seconds</td></tr>
+          <tr><td>Displayed as</td><td>KPI card: "Total Volume" + mini sparkline</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">⏱️</span>
+          <div>
+            <div class="card-title">Average Speed</div>
+            <div class="card-sub">Derived from GPS + BPR model</div>
+          </div>
+        </div>
+        <table class="kv">
+          <tr><td>Baseline</td><td>~28 km/h city average (AM peak)</td></tr>
+          <tr><td>Per-edge</td><td>From BPR: speed = length / BPR_travel_time × 3.6</td></tr>
+          <tr><td>Drift</td><td>±2 km/h pseudo-random per tick</td></tr>
+          <tr><td>Update rate</td><td>3 seconds</td></tr>
+          <tr><td>Displayed as</td><td>KPI card: "Avg Network Speed" km/h</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🌿</span>
+          <div>
+            <div class="card-title">Emissions Estimate</div>
+            <div class="card-sub">Anchored to Denver 2024 GHG inventory</div>
+          </div>
+        </div>
+        <table class="kv">
+          <tr><td>Annual baseline</td><td>1.2M tons CO₂/year (transportation sector)</td></tr>
+          <tr><td>Instantaneous</td><td>~137 kg CO₂/second city-wide</td></tr>
+          <tr><td>Drift</td><td>±0.5% pseudo-random per tick</td></tr>
+          <tr><td>Update rate</td><td>3 seconds</td></tr>
+          <tr><td>Displayed as</td><td>KPI card: "Live CO₂ Rate" kg/min + running daily total</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🔴</span>
+          <div>
+            <div class="card-title">Top 10 Emission Regions</div>
+            <div class="card-sub">5 × 5 km grid cells, highest emission density</div>
+          </div>
+        </div>
+        <table class="kv">
+          <tr><td>Grid</td><td>5 km × 5 km cells over Denver bbox (~16 cells)</td></tr>
+          <tr><td>Derivation</td><td>Sum GPS bus observations × emission factor per cell</td></tr>
+          <tr><td>Anchor</td><td>Weighted to 2024 GHG annual totals per zone type</td></tr>
+          <tr><td>Display</td><td>Heatmap polygon layer on Cesium (red = high CO₂)</td></tr>
+          <tr><td>Checkbox</td><td>☑ "Show Emission Regions" toggle in dashboard</td></tr>
+        </table>
+      </div>
+
+    </div><!-- /cards -->
+  </div><!-- /section D -->
+
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 5 — GHG EMISSIONS BASELINE
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">E</div>
+      <h2>GHG Emissions Historical Baseline (Denver 2024)</h2>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">📊</span>
+          <div>
+            <div class="card-title">GHG Emissions Dataset</div>
+            <div class="card-sub">Most recent year: 2024</div>
+          </div>
+        </div>
+        <span class="badge badge-amber">? Not yet probed (ArcGIS Hub document)</span>
+        <table class="kv">
+          <tr><td>Hub page</td><td><a href="https://opendata-geospatialdenver.hub.arcgis.com/documents/5a5f101431554a14b713dee51bf02c34/about" target="_blank">Document 5a5f1014…</a></td></tr>
+          <tr><td>Format</td><td>Document (likely CSV or Excel — not a Feature Service)</td></tr>
+          <tr><td>Transportation CO₂</td><td>~1.2M tons/year (2024 estimate used as demo baseline)</td></tr>
+          <tr><td>Usage</td><td>Anchor headline KPI; scale per-corridor emission estimates</td></tr>
+        </table>
+        <div class="alert alert-blue" style="margin-top:12px; margin-bottom:0">
+          Even if the document cannot be fetched at runtime, the 1.2M ton baseline is hardcoded as <code>DENVER_GHG_BASELINE_TONS_YR = 1_200_000</code> in the backend service. The dataset URL adds credibility in the demo narrative.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🚗</span>
+          <div>
+            <div class="card-title">Emission Factors (MOVES-lite)</div>
+            <div class="card-sub">Per vehicle class, Colorado grid</div>
+          </div>
+        </div>
+        <span class="badge badge-green">● Hardcoded constants</span>
+        <table class="kv">
+          <tr><td>ICE car</td><td>0.192 kg CO₂ / veh-km (EPA MOVES, Denver average)</td></tr>
+          <tr><td>EV car</td><td>0.035 kg CO₂ / veh-km (CO grid: ~0.4 kg/kWh, 110 Wh/km)</td></tr>
+          <tr><td>Diesel bus</td><td>1.10 kg CO₂ / veh-km</td></tr>
+          <tr><td>Freight truck</td><td>0.72 kg CO₂ / veh-km (fixed, not scenario-adjusted)</td></tr>
+          <tr><td>Mode split (baseline)</td><td>Car 75% · Transit 18% · EV+Bike 7%</td></tr>
+        </table>
+      </div>
+    </div>
+  </div><!-- /section E -->
+
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 6 — INGESTION STRATEGY MATRIX
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">F</div>
+      <h2>Ingestion Strategy — Complete Matrix</h2>
+    </div>
+
+    <div class="card full">
+      <table class="strat-table">
+        <thead>
+          <tr>
+            <th>Data Source</th>
+            <th>Type</th>
+            <th>Access Method</th>
+            <th>When Fetched</th>
+            <th>Stored As</th>
+            <th>Fallback</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Bus GPS (replay)</strong></td>
+            <td>SQLite → JSON</td>
+            <td><code>prepare_gps_replay.py</code> offline script</td>
+            <td>One-time pre-build</td>
+            <td><code>app/data/city/bus_replay.json</code></td>
+            <td>Synthetic trajectories along 24 edges</td>
+            <td><span class="badge badge-amber">DB corrupt — test ZIP</span></td>
+          </tr>
+          <tr>
+            <td><strong>Road Network</strong></td>
+            <td>OSMnx → JSON</td>
+            <td><code>fetch_denver_data.py</code> pipeline</td>
+            <td>One-time pre-build</td>
+            <td><code>app/data/city/edges.json</code></td>
+            <td>24 synthetic demo edges (current)</td>
+            <td><span class="badge badge-amber">Pipeline not run</span></td>
+          </tr>
+          <tr>
+            <td><strong>Intersections (signals)</strong></td>
+            <td>ArcGIS Feature Service</td>
+            <td>ArcGIS REST API at build time</td>
+            <td>One-time pre-build</td>
+            <td><code>app/data/city/signal_baseline.json</code></td>
+            <td>10 synthetic demo signals (current)</td>
+            <td><span class="badge badge-amber">Not yet probed</span></td>
+          </tr>
+          <tr>
+            <td><strong>Bus Stops</strong></td>
+            <td>ArcGIS Feature Service</td>
+            <td>ArcGIS REST API at build time</td>
+            <td>One-time pre-build</td>
+            <td><code>app/data/city/bus_stops.json</code></td>
+            <td>Hardcoded sample of ~50 stops</td>
+            <td><span class="badge badge-amber">Not yet probed</span></td>
+          </tr>
+          <tr>
+            <td><strong>Bus Routes</strong></td>
+            <td>ArcGIS Feature Service</td>
+            <td>ArcGIS REST API at build time</td>
+            <td>One-time pre-build</td>
+            <td><code>app/data/city/bus_routes.json</code></td>
+            <td>Subset from GTFS in pipeline</td>
+            <td><span class="badge badge-amber">Not yet probed</span></td>
+          </tr>
+          <tr>
+            <td><strong>Zoning Districts</strong></td>
+            <td>ArcGIS Feature Service</td>
+            <td>ArcGIS REST API at build time</td>
+            <td>One-time pre-build</td>
+            <td><code>app/data/city/zones.json</code></td>
+            <td>Zone type hardcoded per grid cell</td>
+            <td><span class="badge badge-amber">Not yet probed</span></td>
+          </tr>
+          <tr>
+            <td><strong>Traffic Accidents</strong></td>
+            <td>ArcGIS Feature Service</td>
+            <td>ArcGIS REST API at build time</td>
+            <td>One-time pre-build</td>
+            <td><code>app/data/city/accidents_grid.json</code></td>
+            <td>Density derived from edge v/c ratios</td>
+            <td><span class="badge badge-amber">Not yet probed</span></td>
+          </tr>
+          <tr>
+            <td><strong>GHG Baseline</strong></td>
+            <td>Document (CSV/Excel)</td>
+            <td>Manual download or HTTP fetch</td>
+            <td>Hardcoded constant</td>
+            <td><code>DENVER_GHG_BASELINE = 1_200_000</code></td>
+            <td>Constant is the fallback itself</td>
+            <td><span class="badge badge-green">● Hardcoded</span></td>
+          </tr>
+          <tr>
+            <td><strong>EV Chargers</strong></td>
+            <td>Simulated</td>
+            <td>Deterministic 20% sample of bus stops</td>
+            <td>Runtime (on slider change)</td>
+            <td>Computed in frontend</td>
+            <td>None needed</td>
+            <td><span class="badge badge-green">● Simulated</span></td>
+          </tr>
+          <tr>
+            <td><strong>Streaming KPIs</strong></td>
+            <td>Simulated</td>
+            <td>Frontend <code>setInterval</code> drift</td>
+            <td>3-second client ticks</td>
+            <td>React state only</td>
+            <td>None needed</td>
+            <td><span class="badge badge-green">● Simulated</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div><!-- /section F -->
+
+
+  <!-- ═══════════════════════════════════════════
+       SECTION 7 — IMMEDIATE NEXT STEPS
+  ════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-number">G</div>
+      <h2>Immediate Next Steps (Before Any Code Starts)</h2>
+    </div>
+
+    <div class="cards">
+      <div class="card full">
+        <ul class="checklist">
+          <li class="block">
+            <div><strong>Test ZIP backup:</strong> Extract <code>denver-buses-1-month.zip</code> → run <code>PRAGMA integrity_check</code> → if clean, this becomes the canonical GPS source.</div>
+          </li>
+          <li class="block">
+            <div><strong>Test Python sqlite3 on corrupted DB:</strong> Run a quick Python script using 100k-row chunked reads (same logic as <code>map_match_gps.py</code>) to count how many rows are actually accessible before the corrupt page is hit.</div>
+          </li>
+          <li class="block">
+            <div><strong>Re-probe ArcGIS endpoints:</strong> Re-run the ArcGIS data agents (hit rate limit) — need confirmed REST URLs, field schemas, and record counts for intersections, bus stops, bus routes, zones, and accidents.</div>
+          </li>
+          <li class="warn">
+            <div><strong>Confirm ArcGIS CORS policy:</strong> Determine whether Denver Open Data ArcGIS endpoints allow direct browser fetch (CORS headers) or require a backend proxy. This affects whether data can be fetched at runtime vs. pre-built.</div>
+          </li>
+          <li class="warn">
+            <div><strong>Decide pipeline scope for demo:</strong> Run full OSMnx pipeline (hours, full 40k-edge network) vs. extend synthetic 24-edge demo with lat/lon coordinates (minutes, demo-ready). Recommend: extend synthetic first, run pipeline as enhancement.</div>
+          </li>
+          <li>
+            <div><strong>Confirm demo scenario scope:</strong> EV Mode Shift only, or also include existing Road Closure / Signal Timing / Infrastructure tabs?</div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div><!-- /section G -->
+
+</div><!-- /page -->
+
+<footer>
+  Synapse Digital Twin Platform · Denver Data Strategy Plan · Generated 2026-03-28
+</footer>
+
+</body>
+</html>

@@ -9,6 +9,8 @@ import ComparisonScenario from './components/scenarios/ComparisonScenario'
 import AssetHealthScenario from './components/scenarios/AssetHealthScenario'
 import PredictiveMaintScenario from './components/scenarios/PredictiveMaintScenario'
 import SettingsScenario from './components/scenarios/SettingsScenario'
+import SimulationSelector from './components/SimulationSelector'
+import DenverApp from './components/denver/DenverApp'
 
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -39,15 +41,16 @@ class ErrorBoundary extends Component<
 }
 
 export type ScenarioType = 'toll' | 'corridor' | 'emission' | 'evasion' | 'comparison' | 'asset_health' | 'predictive_maint' | 'settings'
+export type SimulationModule = 'toll_plaza' | 'denver_traffic' | null
 
 export interface SimulationResult {
   cesium_heatmap?: Record<string, number>
   [key: string]: unknown
 }
 
-// ─── App ──────────────────────────────────────────────────────────────────────
+// ─── Toll Plaza module (existing app) ─────────────────────────────────────────
 
-const App: React.FC = () => {
+const TollPlazaApp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [activeScenario, setActiveScenario] = useState<ScenarioType>('toll')
   const [simDuration, setSimDuration] = useState(30)
 
@@ -97,12 +100,40 @@ const App: React.FC = () => {
           {/* Header */}
           <div
             style={{
-              padding: '18px 20px 14px',
+              padding: '14px 20px 12px',
               background: '#0a2744',
               borderBottom: '1px solid #1a4a80',
               flexShrink: 0,
             }}
           >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <button
+                onClick={onBack}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #2a5a90',
+                  borderRadius: 4,
+                  color: '#8899aa',
+                  fontSize: 11,
+                  padding: '3px 8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#aabbcc'
+                  ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#4a7ab0'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#8899aa'
+                  ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#2a5a90'
+                }}
+              >
+                ← Simulations
+              </button>
+            </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: '#e94560', letterSpacing: 0.5 }}>
               🚦 Scenario Lab
             </div>
@@ -127,6 +158,17 @@ const App: React.FC = () => {
       </div>
     </ErrorBoundary>
   )
+}
+
+// ─── Root app ─────────────────────────────────────────────────────────────────
+
+const App: React.FC = () => {
+  const [activeModule, setActiveModule] = useState<SimulationModule>(null)
+
+  if (activeModule === null) return <SimulationSelector onSelect={setActiveModule} />
+  if (activeModule === 'toll_plaza') return <TollPlazaApp onBack={() => setActiveModule(null)} />
+  if (activeModule === 'denver_traffic') return <ErrorBoundary><DenverApp onBack={() => setActiveModule(null)} /></ErrorBoundary>
+  return null
 }
 
 export default App

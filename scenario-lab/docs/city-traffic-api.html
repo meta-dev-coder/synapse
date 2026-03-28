@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>City Traffic Simulation API — Denver, CO</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a1628;
+      color: #c8d8e8;
+      line-height: 1.6;
+    }
+
+    /* ── Layout ── */
+    .sidebar {
+      position: fixed; top: 0; left: 0;
+      width: 240px; height: 100vh;
+      background: #0f2040;
+      border-right: 1px solid #1a3a5c;
+      overflow-y: auto;
+      padding: 24px 0;
+      z-index: 100;
+    }
+    .sidebar-logo {
+      padding: 0 20px 20px;
+      font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+      color: #e94560; text-transform: uppercase;
+      border-bottom: 1px solid #1a3a5c;
+    }
+    .sidebar-logo span { color: #7799bb; font-weight: 400; }
+    .nav-group { padding: 16px 20px 6px; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase; color: #3a5570; }
+    .nav-link {
+      display: block; padding: 7px 20px; font-size: 13px; color: #7799bb;
+      text-decoration: none; border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .nav-link:hover, .nav-link.active {
+      color: #c8d8e8; background: #0a2744; border-left-color: #e94560;
+    }
+
+    .main { margin-left: 240px; max-width: 960px; padding: 48px 48px 80px; }
+
+    /* ── Typography ── */
+    h1 { font-size: 28px; color: #e0e8f0; margin-bottom: 8px; }
+    h2 { font-size: 20px; color: #e0e8f0; margin: 40px 0 12px;
+      padding-bottom: 8px; border-bottom: 1px solid #1a3a5c; }
+    h3 { font-size: 15px; color: #aabdd0; margin: 24px 0 8px; text-transform: uppercase;
+      letter-spacing: 0.06em; }
+    h4 { font-size: 13px; color: #7799bb; margin: 16px 0 6px; text-transform: uppercase;
+      letter-spacing: 0.06em; }
+    p { margin-bottom: 12px; color: #a0b4c8; font-size: 14px; }
+    a { color: #5599dd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 3px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+    }
+    .badge-post  { background: #1b4d20; color: #4caf50; }
+    .badge-get   { background: #1a3a5c; color: #5599dd; }
+    .badge-new   { background: #3a1a0f; color: #e94560; }
+
+    /* ── Endpoint card ── */
+    .endpoint {
+      background: #0d1f35; border: 1px solid #1a3a5c;
+      border-radius: 6px; margin-bottom: 32px; overflow: hidden;
+    }
+    .endpoint-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px; background: #0f2744;
+      border-bottom: 1px solid #1a3a5c;
+    }
+    .endpoint-path { font-family: monospace; font-size: 14px; color: #e0e8f0; }
+    .endpoint-body { padding: 20px; }
+    .endpoint-desc { font-size: 14px; color: #8aadcc; margin-bottom: 16px; }
+
+    /* ── Code blocks ── */
+    pre {
+      background: #060f1c; border: 1px solid #1a3a5c; border-radius: 4px;
+      padding: 16px; overflow-x: auto; margin: 8px 0 16px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12.5px;
+      line-height: 1.55; color: #c8d8e8;
+    }
+    code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px;
+      background: #0d1f35; padding: 2px 5px; border-radius: 3px; color: #aabdd0; }
+
+    /* Syntax highlighting (manual classes) */
+    .kw { color: #5599dd; }   /* keywords */
+    .str { color: #a8d880; }  /* strings */
+    .num { color: #f39c12; }  /* numbers */
+    .cmt { color: #3a5570; font-style: italic; } /* comments */
+    .key { color: #7ec8e3; }  /* JSON keys */
+    .val { color: #a8d880; }  /* JSON string values */
+
+    /* ── Schema table ── */
+    .schema-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+    .schema-table th {
+      text-align: left; padding: 8px 12px; background: #0f2040;
+      color: #5577aa; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+      border-bottom: 1px solid #1a3a5c;
+    }
+    .schema-table td { padding: 7px 12px; border-bottom: 1px solid #0f2040; vertical-align: top; }
+    .schema-table tr:hover td { background: #0a1e32; }
+    .field-name { font-family: monospace; color: #7ec8e3; }
+    .field-type { font-family: monospace; color: #f39c12; }
+    .field-req  { color: #e94560; font-size: 11px; }
+    .field-opt  { color: #3a5570; font-size: 11px; }
+    .field-desc { color: #7799bb; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 4px; margin-bottom: -1px; position: relative; z-index: 1; }
+    .tab {
+      padding: 7px 16px; font-size: 12px; font-weight: 600;
+      background: #060f1c; border: 1px solid #1a3a5c; border-bottom: none;
+      color: #5577aa; cursor: pointer; border-radius: 4px 4px 0 0;
+      user-select: none;
+    }
+    .tab.active { background: #0d1f35; color: #c8d8e8; border-color: #1a3a5c; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Info boxes ── */
+    .info-box {
+      padding: 12px 16px; border-radius: 4px; font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .info-box.note   { background: #0d2235; border-left: 3px solid #5599dd; color: #8aadcc; }
+    .info-box.warn   { background: #1c1200; border-left: 3px solid #f39c12; color: #c8a050; }
+    .info-box.caution{ background: #1c0a0a; border-left: 3px solid #e94560; color: #c06060; }
+
+    /* ── Pipeline steps ── */
+    .pipeline { display: flex; flex-direction: column; gap: 0; margin-bottom: 24px; }
+    .pipe-step {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 14px 0; border-bottom: 1px solid #0f2040;
+    }
+    .pipe-num {
+      width: 28px; height: 28px; flex-shrink: 0;
+      background: #0f3460; border: 1px solid #1a5a8c;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #5599dd;
+    }
+    .pipe-content { flex: 1; }
+    .pipe-title { font-size: 14px; color: #c8d8e8; font-weight: 600; margin-bottom: 3px; }
+    .pipe-desc { font-size: 13px; color: #7799bb; }
+    .pipe-output { font-family: monospace; font-size: 12px; color: #a8d880;
+      background: #060f1c; padding: 2px 6px; border-radius: 3px; margin-top: 4px;
+      display: inline-block;
+    }
+
+    /* ── KPI grid ── */
+    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .kpi-card {
+      background: #0f2040; border: 1px solid #1a3a5c; border-radius: 4px;
+      padding: 10px 12px;
+    }
+    .kpi-label { font-size: 10px; color: #5577aa; text-transform: uppercase;
+      letter-spacing: 0.06em; margin-bottom: 3px; }
+    .kpi-value { font-size: 18px; color: #c8d8e8; font-weight: 600; }
+    .kpi-unit  { font-size: 11px; color: #7799bb; margin-left: 3px; }
+
+    /* ── Header bar ── */
+    .page-header {
+      background: #0f2040; border-bottom: 1px solid #1a3a5c;
+      padding: 20px 48px; margin-left: 240px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .version-badge {
+      background: #0a2744; border: 1px solid #1a5a8c;
+      border-radius: 12px; padding: 3px 12px; font-size: 12px; color: #5599dd;
+    }
+
+    /* ── Formula ── */
+    .formula {
+      background: #060f1c; border: 1px solid #1a3a5c; border-radius: 4px;
+      padding: 14px 18px; font-family: monospace; font-size: 13px;
+      color: #c8d8e8; margin: 8px 0 16px; line-height: 1.7;
+    }
+    .formula var { color: #f39c12; font-style: normal; }
+    .formula .hl { color: #5599dd; }
+
+    hr { border: none; border-top: 1px solid #1a3a5c; margin: 32px 0; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-logo">Synapse<br/><span>City Traffic API</span></div>
+
+  <div class="nav-group">Overview</div>
+  <a href="#overview"    class="nav-link active">Introduction</a>
+  <a href="#data"        class="nav-link">Data Sources</a>
+  <a href="#pipeline"    class="nav-link">Data Pipeline</a>
+  <a href="#simulation"  class="nav-link">Simulation Engine</a>
+
+  <div class="nav-group">Endpoints</div>
+  <a href="#road-closure"   class="nav-link">Road Closure</a>
+  <a href="#signal-timing"  class="nav-link">Signal Timing</a>
+  <a href="#infrastructure" class="nav-link">New Infrastructure</a>
+
+  <div class="nav-group">Reference</div>
+  <a href="#schemas"     class="nav-link">Shared Schemas</a>
+  <a href="#formulas"    class="nav-link">Formulas</a>
+  <a href="#limitations" class="nav-link">Limitations</a>
+  <a href="#errors"      class="nav-link">Error Handling</a>
+</nav>
+
+<!-- Header -->
+<div class="page-header">
+  <div>
+    <h1 style="font-size:18px;margin:0;color:#e0e8f0;">City Traffic Simulation API</h1>
+    <div style="font-size:13px;color:#5577aa;margin-top:2px;">Denver, CO · Synapse Scenario Lab</div>
+  </div>
+  <span class="version-badge">v1.0 · FastAPI</span>
+</div>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- ─── OVERVIEW ─── -->
+  <section id="overview">
+    <h2>Introduction</h2>
+    <p>
+      This API provides three city-scale traffic simulation scenarios for Denver, CO.
+      Each scenario modifies the road network or signal plan, runs a traffic assignment model,
+      and returns network-level and segment-level impact metrics — including a
+      Cesium-compatible heatmap for visualization.
+    </p>
+    <p>
+      Calibration uses one month of real bus GPS data from <code>bus_history.db</code>
+      combined with Denver Open Data (bus stops, bus routes, traffic signals).
+      The road network is built from OpenStreetMap via OSMnx.
+    </p>
+
+    <div class="info-box note">
+      <strong>Base URL (local dev):</strong> <code>http://localhost:8000</code><br/>
+      <strong>Base URL (production):</strong> routed through N8N webhook proxy —
+      each endpoint has a corresponding <code>/webhook/simulate-city-*</code> path.
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Road Segments</div>
+        <div class="kpi-value">~40k<span class="kpi-unit">edges</span></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Bus Stops</div>
+        <div class="kpi-value">8,387</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Traffic Signals</div>
+        <div class="kpi-value">1,288</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Bus Routes</div>
+        <div class="kpi-value">158</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DATA SOURCES ─── -->
+  <section id="data">
+    <h2>Data Sources</h2>
+
+    <!-- ── bus_history.db ── -->
+    <h3>bus_history.db — RTD Bus GPS (Primary Calibration Input)</h3>
+    <p>
+      SQLite database containing one month of real-time GPS position broadcasts for all
+      Denver RTD bus vehicles. This is the primary observational dataset used to calibrate
+      per-segment traffic volumes and derive the origin-destination demand matrix.
+    </p>
+
+    <pre><span class="cmt">-- SQLite table schema</span>
+<span class="kw">CREATE TABLE</span> bus_positions (
+    busId      <span class="kw">TEXT</span>,      <span class="cmt">-- RTD vehicle ID, e.g. "6088", "6102" — identifies individual buses</span>
+    bearing    <span class="kw">REAL</span>,      <span class="cmt">-- Compass heading 0–360° (0 = North, 90 = East)</span>
+                           <span class="cmt">-- Used for map-match direction validation: discard if</span>
+                           <span class="cmt">-- |GPS bearing − road bearing| > 45°</span>
+    lat        <span class="kw">REAL</span>,      <span class="cmt">-- WGS84 latitude  (Denver range: 39.61 – 39.81)</span>
+    lon        <span class="kw">REAL</span>,      <span class="cmt">-- WGS84 longitude (Denver range: -105.11 – -104.79)</span>
+    timestamp  <span class="kw">INTEGER</span>    <span class="cmt">-- Unix epoch in MILLISECONDS — divide by 1000 for seconds</span>
+                           <span class="cmt">-- e.g. 1706788412000 = 2024-02-01 08:13:32 UTC</span>
+);</pre>
+
+    <h4>Database Statistics</h4>
+    <table class="schema-table">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td class="field-name">Coverage period</td><td class="field-desc">~1 month of RTD real-time GPS feed snapshots</td></tr>
+        <tr><td class="field-name">Geographic scope</td><td class="field-desc">City &amp; County of Denver + adjacent service areas (bbox: 39.61–39.81°N, 105.11–104.79°W)</td></tr>
+        <tr><td class="field-name">Ping interval</td><td class="field-desc">Typically 10–30 seconds between consecutive pings per bus</td></tr>
+        <tr><td class="field-name">Readable rows</td><td class="field-desc">~29.7 million rows (safe read limit: page 297,368 × 512 bytes)</td></tr>
+        <tr><td class="field-name">File size</td><td class="field-desc">~1.5 GB on disk</td></tr>
+        <tr><td class="field-name">Unique bus IDs</td><td class="field-desc">~400–600 active vehicles per day</td></tr>
+        <tr><td class="field-name">Speed derivation</td><td class="field-desc">Not stored directly — computed between consecutive pings:<br/>
+          <code>speed = distance(p₁,p₂) / (t₂−t₁)</code>. Filter: 2 &lt; speed &lt; 90 km/h.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="info-box warn">
+      <strong>Partial database corruption:</strong> The SQLite file has partial corruption
+      beyond page 297,368. The pipeline reads in 100k-row chunks and stops at the first
+      read error — all data before the corruption boundary is processed correctly.
+      Approximately 5–10% of the final month of data may be missing.
+    </div>
+
+    <h4>What the GPS data is used for</h4>
+    <table class="schema-table">
+      <thead><tr><th>Pipeline use</th><th>How</th><th>Output</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="field-name">Volume calibration</td>
+          <td class="field-desc">Map-match each ping to nearest road edge. Count observations per edge.
+            Scale by bus modal share (~6%) and observation hours to estimate total veh/hr.</td>
+          <td class="field-desc"><code>calibrated_volumes.json</code></td>
+        </tr>
+        <tr>
+          <td class="field-name">OD matrix derivation</td>
+          <td class="field-desc">Detect trip origins/destinations from per-bus position sequences.
+            Assign to 500 m grid zones using 5-minute gap threshold between trips.</td>
+          <td class="field-desc"><code>od_matrix.json</code></td>
+        </tr>
+        <tr>
+          <td class="field-name">Signal baseline</td>
+          <td class="field-desc">GPS speed near each signalised intersection provides approach flow
+            estimates for Webster optimal cycle calibration.</td>
+          <td class="field-desc"><code>signal_baseline.json</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>Known Limitations of bus_history.db</h4>
+    <div class="info-box caution">
+      <strong>These limitations affect calibration accuracy when the pipeline is run.
+      The demo network is not affected — it uses hand-tuned synthetic volumes.</strong>
+    </div>
+    <table class="schema-table">
+      <thead><tr><th>#</th><th>Limitation</th><th>Impact</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="color:#e94560;font-weight:700">1</td>
+          <td class="field-name">Buses only — no cars or trucks</td>
+          <td class="field-desc">RTD buses represent roughly 5–8% of total Denver traffic. Car/truck volumes
+            must be inferred using a fixed bus modal-share assumption (6%). Errors in this
+            assumption propagate to all edge volumes. Highway edges (I-25, I-70) have very few
+            bus observations and will rely almost entirely on synthetic HCM capacity estimates.</td>
+        </tr>
+        <tr>
+          <td style="color:#e94560;font-weight:700">2</td>
+          <td class="field-name">Partial corruption (last ~10% of data)</td>
+          <td class="field-desc">Rows beyond page 297,368 are unreadable. This means the final
+            portion of the capture period is absent. Volume calibration covers the readable
+            window only; affected edges receive a synthetic fallback of 65% × capacity.</td>
+        </tr>
+        <tr>
+          <td style="color:#e94560;font-weight:700">3</td>
+          <td class="field-name">Variable ping interval</td>
+          <td class="field-desc">GPS ping frequency varies from 10 to 90+ seconds depending on
+            network congestion in the RTD AVL system. Computed speeds between distant pings
+            are less reliable; these points are filtered by the 2–90 km/h speed plausibility check.</td>
+        </tr>
+        <tr>
+          <td style="color:#f39c12;font-weight:700">4</td>
+          <td class="field-name">No time-of-day segmentation stored</td>
+          <td class="field-desc">Timestamps are present but the pipeline aggregates all observations
+            without separating AM/PM/off-peak windows during map-match. Peak scaling is applied
+            analytically after the fact using the fixed PEAK_FACTORS constants (AM ×1.8 etc.),
+            not from measured peak distributions.</td>
+        </tr>
+        <tr>
+          <td style="color:#f39c12;font-weight:700">5</td>
+          <td class="field-name">Bearing accuracy at low speeds and turns</td>
+          <td class="field-desc">GPS bearing is unreliable when a bus is nearly stationary (at stops,
+            traffic lights) or executing turns. The 45° bearing-deviation filter discards these
+            points. This means dwell time at stops is excluded from volume counts, which slightly
+            underestimates congestion near busy stops.</td>
+        </tr>
+        <tr>
+          <td style="color:#f39c12;font-weight:700">6</td>
+          <td class="field-name">No coverage of non-bus routes</td>
+          <td class="field-desc">Streets with no RTD bus service (most residential collectors,
+            some suburban arterials) have zero GPS observations. Their volumes fall back to
+            65% × HCM capacity (synthetic). Road-closure scenarios on these edges will produce
+            less accurate spillover estimates.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ── Data Access Layer ── -->
+    <h3>Data Access Layer — Demo vs. Pipeline Mode</h3>
+    <p>
+      The simulation services use a two-tier data loading strategy implemented in
+      <code>app/data/city_network.py</code>. This allows the API to run and return
+      meaningful results immediately, before the data pipeline has been executed.
+    </p>
+
+    <div class="info-box note">
+      <strong>Current state:</strong> The API ships with a built-in synthetic demo network.
+      Run the pipeline to replace it with real Denver OSM data calibrated from
+      <code>bus_history.db</code>.
+    </div>
+
+    <table class="schema-table">
+      <thead><tr><th>Mode</th><th>Trigger</th><th>Network size</th><th>Volume source</th></tr></thead>
+      <tbody>
+        <tr>
+          <td style="color:#27ae60;font-weight:700">Demo mode</td>
+          <td class="field-desc"><code>app/data/city/edges.json</code> absent</td>
+          <td class="field-desc">24 representative Denver edges on key arterials and highways</td>
+          <td class="field-desc">Hand-calibrated AM-peak volumes (v/c ratios 0.45–0.95 based on Denver DOT counts)</td>
+        </tr>
+        <tr>
+          <td style="color:#5599dd;font-weight:700">Pipeline mode</td>
+          <td class="field-desc"><code>app/data/city/edges.json</code> present</td>
+          <td class="field-desc">~40,000 OSM drive edges (full Denver bbox)</td>
+          <td class="field-desc">Calibrated from <code>bus_history.db</code> map-match + HCM capacity fallback</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <pre><span class="cmt"># city_network.py load logic (simplified)</span>
+<span class="kw">def</span> get_edges() -> dict:
+    data = _load_json(<span class="str">"edges.json"</span>)          <span class="cmt"># looks in app/data/city/</span>
+    <span class="kw">if</span> data <span class="kw">is not None</span>:
+        <span class="kw">return</span> data                           <span class="cmt"># ← pipeline mode (real network)</span>
+    <span class="kw">return</span> _DEMO_EDGES                        <span class="cmt"># ← demo mode (24 synthetic edges)</span>
+
+<span class="kw">def</span> get_signals() -> dict:
+    data = _load_json(<span class="str">"signal_baseline.json"</span>)
+    <span class="kw">if</span> data <span class="kw">is not None</span>:
+        <span class="kw">return</span> data                           <span class="cmt"># ← pipeline mode (1,288 real signals)</span>
+    <span class="kw">return</span> _DEMO_SIGNALS                      <span class="cmt"># ← demo mode (10 synthetic signals)</span></pre>
+
+    <h4>Demo Network — Representative Denver Edges</h4>
+    <p>
+      The 24 synthetic edges cover the major road classes and corridors.
+      All volumes are AM-peak calibrated; services scale to PM / OFF_PEAK via
+      <code>PEAK_FACTORS</code>.
+    </p>
+    <table class="schema-table">
+      <thead><tr><th>Road</th><th>Direction</th><th>Type</th><th>Lanes</th><th>Cap (veh/hr)</th><th>Vol AM (veh/hr)</th><th>v/c</th></tr></thead>
+      <tbody>
+        <tr><td class="field-name">I-25</td><td>NB + SB</td><td class="field-desc">Urban highway</td><td>3</td><td>5,400</td><td>4,320–4,860</td><td style="color:#e94560">0.80–0.90</td></tr>
+        <tr><td class="field-name">I-70</td><td>EB + WB</td><td class="field-desc">Urban highway</td><td>3</td><td>5,400</td><td>4,860–5,130</td><td style="color:#e94560">0.90–0.95</td></tr>
+        <tr><td class="field-name">6th Ave (US-6)</td><td>EB + WB</td><td class="field-desc">Expressway</td><td>3</td><td>5,400</td><td>3,780–4,320</td><td style="color:#f39c12">0.70–0.80</td></tr>
+        <tr><td class="field-name">E Colfax Ave</td><td>EB + WB</td><td class="field-desc">Primary arterial</td><td>2</td><td>3,600</td><td>2,520–2,700</td><td style="color:#f39c12">0.70–0.75</td></tr>
+        <tr><td class="field-name">Broadway</td><td>NB + SB</td><td class="field-desc">Primary arterial</td><td>2</td><td>3,600</td><td>2,700–2,880</td><td style="color:#f39c12">0.75–0.80</td></tr>
+        <tr><td class="field-name">Colorado Blvd</td><td>NB + SB</td><td class="field-desc">Primary arterial</td><td>2</td><td>3,600</td><td>3,060–3,240</td><td style="color:#e94560">0.85–0.90</td></tr>
+        <tr><td class="field-name">Federal Blvd</td><td>NB + SB</td><td class="field-desc">Secondary arterial</td><td>2</td><td>3,600</td><td>2,340–2,520</td><td style="color:#a8d880">0.65–0.70</td></tr>
+        <tr><td class="field-name">Speer Blvd</td><td>NE + SW</td><td class="field-desc">Secondary arterial</td><td>2</td><td>3,600</td><td>1,980–2,160</td><td style="color:#a8d880">0.55–0.60</td></tr>
+        <tr><td class="field-name">W Alameda Ave</td><td>EB + WB</td><td class="field-desc">Secondary arterial</td><td>2</td><td>3,600</td><td>2,160–2,340</td><td style="color:#a8d880">0.60–0.65</td></tr>
+        <tr><td class="field-name">University Blvd</td><td>NB + SB</td><td class="field-desc">Secondary arterial</td><td>2</td><td>3,600</td><td>1,620–1,800</td><td style="color:#a8d880">0.45–0.50</td></tr>
+        <tr><td class="field-name">17th Ave</td><td>EB + WB</td><td class="field-desc">Collector</td><td>1</td><td>1,800</td><td>1,080–1,170</td><td style="color:#a8d880">0.60–0.65</td></tr>
+        <tr><td class="field-name">Larimer / Market St</td><td>EB</td><td class="field-desc">Collector</td><td>1</td><td>1,800</td><td>810–900</td><td style="color:#a8d880">0.45–0.50</td></tr>
+      </tbody>
+    </table>
+
+    <h4>Demo Signal Network — 10 Key Intersections</h4>
+    <table class="schema-table">
+      <thead><tr><th>Signal ID</th><th>Location</th><th>Baseline Cycle</th><th>NS flow</th><th>EW flow</th></tr></thead>
+      <tbody>
+        <tr><td class="field-name">TS-00124</td><td class="field-desc">Colfax Ave &amp; Broadway</td><td>120 s</td><td>2,880 veh/hr</td><td>2,700 veh/hr</td></tr>
+        <tr><td class="field-name">TS-00341</td><td class="field-desc">Colorado Blvd &amp; Colfax Ave</td><td>120 s</td><td>3,240 veh/hr</td><td>2,700 veh/hr</td></tr>
+        <tr><td class="field-name">TS-00503</td><td class="field-desc">Speer Blvd &amp; 6th Ave</td><td>110 s</td><td>2,160 veh/hr</td><td>4,320 veh/hr</td></tr>
+        <tr><td class="field-name">TS-00615</td><td class="field-desc">Broadway &amp; W Alameda Ave</td><td>115 s</td><td>2,880 veh/hr</td><td>2,340 veh/hr</td></tr>
+        <tr><td class="field-name">TS-00831</td><td class="field-desc">I-25 SB ramp &amp; W Alameda Ave</td><td>95 s</td><td>4,860 veh/hr</td><td>2,160 veh/hr</td></tr>
+        <tr><td class="field-name">TS-01050</td><td class="field-desc">6th Ave &amp; Broadway</td><td>120 s</td><td>2,880 veh/hr</td><td>4,320 veh/hr</td></tr>
+        <tr><td class="field-name">TS-00412</td><td class="field-desc">Federal Blvd &amp; W 38th Ave</td><td>100 s</td><td>2,520 veh/hr</td><td>1,200 veh/hr</td></tr>
+        <tr><td class="field-name">TS-00724</td><td class="field-desc">University Blvd &amp; W Alameda Ave</td><td>105 s</td><td>1,800 veh/hr</td><td>2,340 veh/hr</td></tr>
+        <tr><td class="field-name">TS-00287</td><td class="field-desc">17th Ave &amp; Market St</td><td>90 s</td><td>810 veh/hr</td><td>900 veh/hr</td></tr>
+        <tr><td class="field-name">TS-00942</td><td class="field-desc">Larimer St &amp; 20th St</td><td>80 s</td><td>720 veh/hr</td><td>900 veh/hr</td></tr>
+      </tbody>
+    </table>
+
+    <!-- ── ArcGIS ── -->
+    <h3>Denver Open Data — ArcGIS REST</h3>
+    <p>Fetched once by the pipeline (<code>fetch_denver_data.py</code>) and cached locally:</p>
+    <table class="schema-table">
+      <thead><tr><th>Dataset</th><th>Records</th><th>Key fields used</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="field-name">signals_raw.geojson</td>
+          <td>1,288 (IN USE + Vehicular)</td>
+          <td class="field-desc">TRAFFIC_SIGNAL_ID, geometry (lon/lat), SIGNAL_TYPE, STATUS</td>
+        </tr>
+        <tr>
+          <td class="field-name">gtfs_routes.json</td>
+          <td>158 bus routes</td>
+          <td class="field-desc">route_id, route_short_name, route_long_name, route_type = 3 (bus)</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="info-box note">
+      Traffic signals are filtered to <code>STATUS = "IN USE"</code> and
+      <code>SIGNAL_TYPE IN ("VEHICULAR", "VEHICLE")</code> — pedestrian-only signals are excluded.
+    </div>
+
+    <!-- ── OSMnx ── -->
+    <h3>Road Network — OpenStreetMap via OSMnx</h3>
+    <pre><span class="kw">import</span> osmnx <span class="kw">as</span> ox
+G = ox.graph_from_bbox(
+    bbox=(<span class="num">39.8144</span>, <span class="num">39.6145</span>, <span class="num">-104.7862</span>, <span class="num">-105.1093</span>),
+    network_type=<span class="str">'drive'</span>, simplify=<span class="kw">True</span>, retain_all=<span class="kw">False</span>
+)
+<span class="cmt"># Edge ID convention — stable across runs (u, v are OSM node IDs):</span>
+edge_id = <span class="str">f"</span>{u}<span class="str">_</span>{v}<span class="str">_</span>{k}<span class="str">"</span>   <span class="cmt"># e.g. "287645231_287645290_0"</span></pre>
+    <p>
+      HCM capacity defaults are assigned per highway type: motorway 2,200 · trunk 2,000 ·
+      primary 1,900 · secondary 1,800 · tertiary 1,700 · residential 1,200 veh/hr/lane.
+      Free-flow speed is taken from OSM <code>maxspeed</code> tag, falling back to
+      highway-type defaults when absent.
+    </p>
+  </section>
+
+  <!-- ─── PIPELINE ─── -->
+  <section id="pipeline">
+    <h2>Data Pipeline</h2>
+    <p>
+      Run once offline. Outputs are committed to <code>backend/app/data/city/</code> and loaded
+      at server startup. All scripts live in <code>backend/app/pipeline/</code>.
+    </p>
+
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-num">1</div>
+        <div class="pipe-content">
+          <div class="pipe-title">fetch_denver_data.py — Download source data</div>
+          <div class="pipe-desc">
+            Downloads the OSMnx road graph for the Denver bbox, fetches ArcGIS traffic signals
+            (filtered to <code>STATUS="IN USE"</code> and <code>SIGNAL_TYPE="Vehicular"</code>),
+            and downloads the RTD GTFS static feed to extract bus route IDs.
+          </div>
+          <span class="pipe-output">→ raw_graph.graphml, signals_raw.geojson, gtfs_routes.json</span>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">2</div>
+        <div class="pipe-content">
+          <div class="pipe-title">build_network.py — Build edges.json from OSMnx graph</div>
+          <div class="pipe-desc">
+            Loads <code>raw_graph.graphml</code>, assigns stable edge IDs (<code>u_v_k</code>),
+            applies HCM capacity defaults by highway type, assigns free-flow speed from
+            <code>maxspeed</code> tag (falls back to highway defaults), and attaches RTD bus route IDs
+            per edge from the GTFS feed. Loads <code>calibrated_volumes.json</code> from Step 3 if
+            available; otherwise defaults to 65% × capacity.
+          </div>
+          <span class="pipe-output">→ edges.json</span>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">3</div>
+        <div class="pipe-content">
+          <div class="pipe-title">map_match_gps.py — Map-match bus GPS to road edges</div>
+          <div class="pipe-desc">
+            Reads <code>bus_history.db</code> in 100k-row chunks (stops at page 297,368 to avoid
+            corruption). For each GPS ping: snap to nearest OSMnx edge using
+            <code>ox.nearest_edges</code>, validate bearing deviation (&lt;45° threshold),
+            discard points &gt;50 m from road. Counts observations per edge, then scales to
+            AM-peak veh/hr using bus modal share (6%) and observation hours (90 hr).
+          </div>
+          <span class="pipe-output">→ calibrated_volumes.json</span>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">4</div>
+        <div class="pipe-content">
+          <div class="pipe-title">build_od_matrix.py — Origin-Destination demand matrix</div>
+          <div class="pipe-desc">
+            Streams bus positions ordered by <code>(busId, timestamp)</code>. Detects individual
+            trips using a 5-minute gap threshold. Maps each GPS ping to a 500 m × 500 m grid cell
+            over the Denver bbox. Records origin cell (first ping) → destination cell (last ping)
+            per trip. Scales trip counts to veh/hr using the same 90 hr / 6% modal share as Step 3.
+          </div>
+          <span class="pipe-output">→ od_matrix.json</span>
+        </div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-num">5</div>
+        <div class="pipe-content">
+          <div class="pipe-title">build_signal_model.py — Signal timing baseline</div>
+          <div class="pipe-desc">
+            Loads <code>signals_raw.geojson</code> (1,288 signals). For each signal, finds
+            nearby calibrated edge volumes and applies Webster's optimal cycle formula
+            (<code>C = (1.5L + 5) / (1 − Y)</code>) to compute baseline cycle lengths.
+            Apportions green times proportionally by approach flow (NS vs EW).
+            Falls back to 1,500 veh/hr approach volume when no GPS data is nearby.
+          </div>
+          <span class="pipe-output">→ signal_baseline.json</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SIMULATION ENGINE ─── -->
+  <section id="simulation">
+    <h2>Simulation Engine</h2>
+    <p>
+      All three scenarios share the same traffic assignment library
+      (<code>city_assignment.py</code>). The <code>rerouting_model</code> parameter
+      selects between fast and accurate modes:
+    </p>
+
+    <h3>What is Simulated vs. Estimated</h3>
+    <table class="schema-table">
+      <thead><tr><th>Output</th><th>How it is computed</th><th>Confidence</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="field-name">Congestion scalar (v/c)</td>
+          <td class="field-desc">Directly from BPR using calibrated volumes and HCM capacity. Accurate when pipeline has been run.</td>
+          <td style="color:#27ae60">High (pipeline) / Medium (demo)</td>
+        </tr>
+        <tr>
+          <td class="field-name">Travel time delta %</td>
+          <td class="field-desc">Derived from BPR travel time change weighted by volume. Relative change is reliable; absolute value depends on volume calibration.</td>
+          <td style="color:#f39c12">Medium</td>
+        </tr>
+        <tr>
+          <td class="field-name">Queue length (m)</td>
+          <td class="field-desc">Computed as max(0, v − c) × 6.5 m/veh. Simplified; does not model shockwave propagation.</td>
+          <td style="color:#f39c12">Medium</td>
+        </tr>
+        <tr>
+          <td class="field-name">Webster delay (signal timing)</td>
+          <td class="field-desc">HCM 2000 formula applied to approach volumes. Accurate for pre-saturated conditions (x &lt; 1.0). Less reliable at x &gt; 0.9 (overflow regime).</td>
+          <td style="color:#f39c12">Medium–High</td>
+        </tr>
+        <tr>
+          <td class="field-name">Rerouting fraction</td>
+          <td class="field-desc">In demo mode: proportion of edges receiving redirected volume. In pipeline mode: fraction of OD pairs with changed shortest path.</td>
+          <td style="color:#f39c12">Indicative only (demo)</td>
+        </tr>
+        <tr>
+          <td class="field-name">New link utilisation</td>
+          <td class="field-desc">Capacity-weighted demand diversion model. Correct directionally; exact volumes depend on OD matrix quality.</td>
+          <td style="color:#f39c12">Indicative</td>
+        </tr>
+        <tr>
+          <td class="field-name">Frank-Wolfe equilibrium (demo)</td>
+          <td class="field-desc">In demo mode, FW is approximated by a 0.78 dampening factor on AoN flows — not a true iterative equilibrium. Run pipeline for full FW.</td>
+          <td style="color:#e94560">Approximation (demo)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>All-or-Nothing (AoN) — default fast mode</h3>
+    <p>
+      For every origin→destination pair in the demand matrix, all demand is routed along
+      the single shortest path (Dijkstra). Fast; suitable for most planning decisions.
+    </p>
+    <div class="formula">
+      <var>path</var> = Dijkstra(<var>G</var>, <var>origin</var>, <var>dest</var>, weight=<span class="hl">travel_time</span>)<br/>
+      <var>volume[e]</var> += <var>demand[od]</var>  for each edge <var>e</var> on path
+    </div>
+
+    <h3>Frank-Wolfe — accurate equilibrium mode</h3>
+    <p>
+      Iterative user-equilibrium assignment. Converges when total system travel time
+      changes by less than 0.1% between iterations (typically 5–10 iterations).
+    </p>
+    <div class="formula">
+      k=1: AoN assignment → <var>v⁰</var><br/>
+      k+1: compute <var>t_e(v_e^k)</var> via BPR<br/>
+           AoN on current costs → auxiliary flows <var>y_e</var><br/>
+           λ* = argmin<sub>λ∈[0,1]</sub> Σ <span class="hl">∫BPR</span> via bisection<br/>
+           <var>v_e^{k+1}</var> = <var>v_e^k</var> + λ*(<var>y_e</var> − <var>v_e^k</var>)<br/>
+      stop when |TSTT<sup>k+1</sup> − TSTT<sup>k</sup>| / TSTT<sup>k</sup> &lt; 0.001
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- ─── SCENARIO A ─── -->
+  <section id="road-closure">
+    <h2>Scenario A — Road Closure</h2>
+    <p>
+      Simulates closure or partial capacity reduction of one or more road segments.
+      Reassigns all traffic demand around the blockage and identifies spillover congestion zones.
+    </p>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="badge badge-post">POST</span>
+        <span class="endpoint-path">/api/v1/simulate/city_road_closure</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          Close roads, reduce capacity, or simulate incidents. Returns network-wide
+          travel time impact, spillover segment list, affected RTD routes, and per-edge heatmap.
+        </div>
+
+        <h3>Request Body</h3>
+        <table class="schema-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="field-name">closures</td>
+              <td class="field-type">ClosedSegment[]</td>
+              <td class="field-req">required</td>
+              <td class="field-desc">List of road closures (1–20). Each closure specifies one or more OSM edge IDs.</td>
+            </tr>
+            <tr>
+              <td class="field-name">peak_period</td>
+              <td class="field-type">string</td>
+              <td class="field-opt">optional</td>
+              <td class="field-desc"><code>"AM"</code> (default) | <code>"PM"</code> | <code>"OFF_PEAK"</code>. Scales OD demand by peak factor.</td>
+            </tr>
+            <tr>
+              <td class="field-name">rerouting_model</td>
+              <td class="field-type">string</td>
+              <td class="field-opt">optional</td>
+              <td class="field-desc"><code>"all_or_nothing"</code> (default, fast) | <code>"frank_wolfe"</code> (accurate).</td>
+            </tr>
+            <tr>
+              <td class="field-name">simulation_duration_sec</td>
+              <td class="field-type">integer</td>
+              <td class="field-opt">optional</td>
+              <td class="field-desc">10–60 seconds. Controls UI progress animation pacing. Default: 30.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4>ClosedSegment object</h4>
+        <table class="schema-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="field-name">edge_ids</td>
+              <td class="field-type">string[]</td>
+              <td class="field-desc">OSM edge IDs to close, e.g. <code>["1234567_9876543_0"]</code>. One named road = multiple edges.</td>
+            </tr>
+            <tr>
+              <td class="field-name">reason</td>
+              <td class="field-type">string</td>
+              <td class="field-desc">Annotation: <code>"construction"</code> (default) | <code>"incident"</code> | <code>"event"</code> | <code>"maintenance"</code>.</td>
+            </tr>
+            <tr>
+              <td class="field-name">capacity_reduction_pct</td>
+              <td class="field-type">float</td>
+              <td class="field-desc">0–100. Use 100 (default) for full closure, lower for partial (e.g. lane closure = 50).</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Response</h3>
+        <table class="schema-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="field-name">avg_travel_time_delta_pct</td><td class="field-type">float</td><td class="field-desc">Network-wide % change in total vehicle-travel-time. Positive = worse.</td></tr>
+            <tr><td class="field-name">congestion_intensity_delta</td><td class="field-type">float</td><td class="field-desc">Change in mean v/c ratio across all network edges.</td></tr>
+            <tr><td class="field-name">spillover_segment_count</td><td class="field-type">integer</td><td class="field-desc">Number of edges where v/c crossed above 0.85 (newly congested).</td></tr>
+            <tr><td class="field-name">rerouting_pct</td><td class="field-type">float</td><td class="field-desc">Fraction of OD pairs that changed their shortest path.</td></tr>
+            <tr><td class="field-name">total_queue_m</td><td class="field-type">float</td><td class="field-desc">Sum of queue lengths across all congested segments (metres).</td></tr>
+            <tr><td class="field-name">affected_routes</td><td class="field-type">string[]</td><td class="field-desc">RTD route IDs whose travel time increased by more than 10%.</td></tr>
+            <tr><td class="field-name">top_congested_edges</td><td class="field-type">CityEdgeResult[]</td><td class="field-desc">Top 20 most congested edges (by congestion_scalar descending).</td></tr>
+            <tr><td class="field-name">cesium_heatmap</td><td class="field-type">CityHeatmap</td><td class="field-desc">Per-edge congestion scalars for map visualization.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Examples</h3>
+
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'rc-curl')">curl</div>
+          <div class="tab" onclick="switchTab(this,'rc-python')">Python</div>
+          <div class="tab" onclick="switchTab(this,'rc-response')">Response</div>
+        </div>
+
+        <div id="rc-curl" class="tab-panel active">
+<pre><span class="cmt"># Full closure of two edges on Colfax Ave (Route 16 corridor)</span>
+curl -X POST http://localhost:8000/api/v1/simulate/city_road_closure \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{
+    "closures": [
+      {
+        "edge_ids": ["1234567_9876543_0", "1234567_9876543_1"],
+        "reason": "construction",
+        "capacity_reduction_pct": 100
+      }
+    ],
+    "peak_period": "AM",
+    "rerouting_model": "all_or_nothing",
+    "simulation_duration_sec": 30
+  }'</span></pre>
+        </div>
+
+        <div id="rc-python" class="tab-panel">
+<pre><span class="kw">import</span> httpx
+
+response = httpx.post(
+    <span class="str">"http://localhost:8000/api/v1/simulate/city_road_closure"</span>,
+    json={
+        <span class="str">"closures"</span>: [
+            {
+                <span class="str">"edge_ids"</span>: [<span class="str">"1234567_9876543_0"</span>, <span class="str">"1234567_9876543_1"</span>],
+                <span class="str">"reason"</span>: <span class="str">"construction"</span>,
+                <span class="str">"capacity_reduction_pct"</span>: <span class="num">100</span>
+            }
+        ],
+        <span class="str">"peak_period"</span>: <span class="str">"AM"</span>,
+        <span class="str">"rerouting_model"</span>: <span class="str">"frank_wolfe"</span>,  <span class="cmt"># higher accuracy</span>
+        <span class="str">"simulation_duration_sec"</span>: <span class="num">30</span>
+    },
+    timeout=<span class="num">90</span>
+)
+result = response.json()
+print(<span class="str">f"Travel time worsened by </span>{result['avg_travel_time_delta_pct']:.1f}<span class="str">%"</span>)
+print(<span class="str">f"</span>{result['spillover_segment_count']}<span class="str"> spillover segments"</span>)
+print(<span class="str">f"Affected RTD routes: </span>{<span class="str">', '</span>.join(result['affected_routes'])}<span class="str">"</span>)</pre>
+        </div>
+
+        <div id="rc-response" class="tab-panel">
+<pre>{
+  <span class="key">"scenario"</span>: <span class="val">"city_road_closure"</span>,
+  <span class="key">"avg_travel_time_delta_pct"</span>: <span class="num">14.7</span>,
+  <span class="key">"congestion_intensity_delta"</span>: <span class="num">0.12</span>,
+  <span class="key">"spillover_segment_count"</span>: <span class="num">23</span>,
+  <span class="key">"rerouting_pct"</span>: <span class="num">0.38</span>,
+  <span class="key">"total_queue_m"</span>: <span class="num">4280.0</span>,
+  <span class="key">"affected_routes"</span>: [<span class="val">"16"</span>, <span class="val">"15"</span>, <span class="val">"83L"</span>],
+  <span class="key">"top_congested_edges"</span>: [
+    {
+      <span class="key">"edge_id"</span>: <span class="val">"9876543_1234567_0"</span>,
+      <span class="key">"road_name"</span>: <span class="val">"E Colfax Ave"</span>,
+      <span class="key">"length_m"</span>: <span class="num">182.4</span>,
+      <span class="key">"volume_baseline_veh_hr"</span>: <span class="num">820.0</span>,
+      <span class="key">"volume_simulated_veh_hr"</span>: <span class="num">1380.0</span>,
+      <span class="key">"speed_baseline_kmh"</span>: <span class="num">38.2</span>,
+      <span class="key">"speed_simulated_kmh"</span>: <span class="num">18.4</span>,
+      <span class="key">"v_over_c_ratio"</span>: <span class="num">0.92</span>,
+      <span class="key">"congestion_scalar"</span>: <span class="num">0.92</span>,
+      <span class="key">"is_closed"</span>: <span class="kw">false</span>
+    }
+  ],
+  <span class="key">"cesium_heatmap"</span>: {
+    <span class="key">"edges"</span>: {
+      <span class="key">"9876543_1234567_0"</span>: <span class="num">0.92</span>,
+      <span class="key">"1111111_2222222_0"</span>: <span class="num">0.74</span>
+    }
+  }
+}</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SCENARIO B ─── -->
+  <section id="signal-timing">
+    <h2>Scenario B — Traffic Signal Timing</h2>
+    <p>
+      Adjusts green-time allocation and cycle length at one or more signalized intersections.
+      Uses Webster's delay formula (HCM 2000) to compute per-intersection delay change
+      and BPR to propagate the effect through upstream edges.
+    </p>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="badge badge-post">POST</span>
+        <span class="endpoint-path">/api/v1/simulate/city_signal_timing</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          Override timing parameters at up to 50 signalized intersections.
+          Returns average delay change, queue reduction, and per-intersection breakdown.
+        </div>
+
+        <h3>Request Body</h3>
+        <table class="schema-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="field-name">overrides</td>
+              <td class="field-type">SignalOverride[]</td>
+              <td class="field-req">required</td>
+              <td class="field-desc">Signal timing overrides (1–50 intersections).</td>
+            </tr>
+            <tr>
+              <td class="field-name">peak_period</td>
+              <td class="field-type">string</td>
+              <td class="field-opt">optional</td>
+              <td class="field-desc"><code>"AM"</code> (default) | <code>"PM"</code> | <code>"OFF_PEAK"</code>.</td>
+            </tr>
+            <tr>
+              <td class="field-name">simulation_duration_sec</td>
+              <td class="field-type">integer</td>
+              <td class="field-opt">optional</td>
+              <td class="field-desc">10–60 seconds. Default: 30.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4>SignalOverride object</h4>
+        <table class="schema-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="field-name">signal_id</td><td class="field-type">string</td><td class="field-desc">TRAFFIC_SIGNAL_ID from ArcGIS data (e.g. <code>"TS-00124"</code>).</td></tr>
+            <tr><td class="field-name">cycle_sec</td><td class="field-type">float</td><td class="field-desc">Total signal cycle length in seconds. Range: 60–180.</td></tr>
+            <tr><td class="field-name">green_ns_sec</td><td class="field-type">float</td><td class="field-desc">Green time allocated to N-S direction. Range: 10–120.</td></tr>
+            <tr><td class="field-name">green_ew_sec</td><td class="field-type">float</td><td class="field-desc">Green time allocated to E-W direction. Range: 10–120.</td></tr>
+            <tr><td class="field-name">strategy</td><td class="field-type">string</td><td class="field-desc"><code>"fixed"</code> (default) | <code>"actuated"</code> | <code>"adaptive"</code>. Annotation only in v1.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Response</h3>
+        <table class="schema-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="field-name">avg_delay_delta_sec_veh</td><td class="field-type">float</td><td class="field-desc">Change in average delay per vehicle (seconds). Negative = improvement.</td></tr>
+            <tr><td class="field-name">avg_travel_time_delta_pct</td><td class="field-type">float</td><td class="field-desc">Network-level travel time % change from propagated signal effects.</td></tr>
+            <tr><td class="field-name">total_queue_delta_veh</td><td class="field-type">float</td><td class="field-desc">Total change in queued vehicles across all modified intersections. Negative = reduction.</td></tr>
+            <tr><td class="field-name">intersections_improved</td><td class="field-type">integer</td><td class="field-desc">Count of intersections with reduced delay.</td></tr>
+            <tr><td class="field-name">intersections_worsened</td><td class="field-type">integer</td><td class="field-desc">Count of intersections with increased delay.</td></tr>
+            <tr><td class="field-name">per_intersection</td><td class="field-type">IntersectionResult[]</td><td class="field-desc">Full before/after breakdown per modified intersection.</td></tr>
+            <tr><td class="field-name">cesium_heatmap</td><td class="field-type">CityHeatmap</td><td class="field-desc">Congestion scalar on upstream edges of modified signals.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Examples</h3>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'st-curl')">curl</div>
+          <div class="tab" onclick="switchTab(this,'st-python')">Python</div>
+          <div class="tab" onclick="switchTab(this,'st-response')">Response</div>
+        </div>
+
+        <div id="st-curl" class="tab-panel active">
+<pre><span class="cmt"># Increase N-S green time at 2 congested intersections on Colfax</span>
+curl -X POST http://localhost:8000/api/v1/simulate/city_signal_timing \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{
+    "overrides": [
+      {
+        "signal_id": "TS-00124",
+        "cycle_sec": 90,
+        "green_ns_sec": 45,
+        "green_ew_sec": 25,
+        "strategy": "fixed"
+      },
+      {
+        "signal_id": "TS-00531",
+        "cycle_sec": 120,
+        "green_ns_sec": 55,
+        "green_ew_sec": 40,
+        "strategy": "actuated"
+      }
+    ],
+    "peak_period": "AM"
+  }'</span></pre>
+        </div>
+
+        <div id="st-python" class="tab-panel">
+<pre><span class="kw">import</span> httpx
+
+response = httpx.post(
+    <span class="str">"http://localhost:8000/api/v1/simulate/city_signal_timing"</span>,
+    json={
+        <span class="str">"overrides"</span>: [
+            {
+                <span class="str">"signal_id"</span>: <span class="str">"TS-00124"</span>,
+                <span class="str">"cycle_sec"</span>: <span class="num">90</span>,
+                <span class="str">"green_ns_sec"</span>: <span class="num">45</span>,
+                <span class="str">"green_ew_sec"</span>: <span class="num">25</span>,
+                <span class="str">"strategy"</span>: <span class="str">"fixed"</span>
+            }
+        ],
+        <span class="str">"peak_period"</span>: <span class="str">"AM"</span>,
+        <span class="str">"simulation_duration_sec"</span>: <span class="num">30</span>
+    },
+    timeout=<span class="num">90</span>
+)
+result = response.json()
+print(<span class="str">f"Delay change: </span>{result['avg_delay_delta_sec_veh']:.1f}<span class="str"> sec/veh"</span>)
+print(<span class="str">f"Improved: </span>{result['intersections_improved']}<span class="str">,  Worsened: </span>{result['intersections_worsened']}<span class="str">"</span>)</pre>
+        </div>
+
+        <div id="st-response" class="tab-panel">
+<pre>{
+  <span class="key">"scenario"</span>: <span class="val">"city_signal_timing"</span>,
+  <span class="key">"avg_delay_delta_sec_veh"</span>: <span class="num">-8.3</span>,
+  <span class="key">"avg_travel_time_delta_pct"</span>: <span class="num">-4.1</span>,
+  <span class="key">"total_queue_delta_veh"</span>: <span class="num">-47.0</span>,
+  <span class="key">"intersections_improved"</span>: <span class="num">2</span>,
+  <span class="key">"intersections_worsened"</span>: <span class="num">0</span>,
+  <span class="key">"per_intersection"</span>: [
+    {
+      <span class="key">"signal_id"</span>: <span class="val">"TS-00124"</span>,
+      <span class="key">"lat"</span>: <span class="num">39.7406</span>,
+      <span class="key">"lon"</span>: <span class="num">-104.9060</span>,
+      <span class="key">"cycle_baseline_sec"</span>: <span class="num">90.0</span>,
+      <span class="key">"cycle_simulated_sec"</span>: <span class="num">90.0</span>,
+      <span class="key">"delay_baseline_sec_veh"</span>: <span class="num">42.1</span>,
+      <span class="key">"delay_simulated_sec_veh"</span>: <span class="num">33.8</span>,
+      <span class="key">"queue_baseline_veh"</span>: <span class="num">18.5</span>,
+      <span class="key">"queue_simulated_veh"</span>: <span class="num">14.2</span>,
+      <span class="key">"throughput_delta_pct"</span>: <span class="num">11.4</span>,
+      <span class="key">"congestion_scalar"</span>: <span class="num">0.61</span>
+    }
+  ],
+  <span class="key">"cesium_heatmap"</span>: {
+    <span class="key">"edges"</span>: { <span class="key">"3456789_4567890_0"</span>: <span class="num">0.61</span> }
+  }
+}</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SCENARIO C ─── -->
+  <section id="infrastructure">
+    <h2>Scenario C — New Infrastructure</h2>
+    <p>
+      Introduces a new road connection (bridge, bypass, connector, or alternate corridor)
+      and measures how traffic redistributes across the network.
+      Up to 5 new links can be evaluated simultaneously.
+    </p>
+
+    <div class="endpoint">
+      <div class="endpoint-header">
+        <span class="badge badge-post">POST</span>
+        <span class="endpoint-path">/api/v1/simulate/city_infrastructure</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          Insert virtual road links into the network, re-assign all OD demand,
+          and measure travel time improvement, VKT change, and per-link utilisation.
+        </div>
+
+        <h3>Request Body</h3>
+        <table class="schema-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="field-name">new_links</td>
+              <td class="field-type">NewRoadLink[]</td>
+              <td class="field-req">required</td>
+              <td class="field-desc">New road connections to evaluate (1–5).</td>
+            </tr>
+            <tr>
+              <td class="field-name">peak_period</td>
+              <td class="field-type">string</td>
+              <td class="field-opt">optional</td>
+              <td class="field-desc"><code>"AM"</code> (default) | <code>"PM"</code> | <code>"OFF_PEAK"</code>.</td>
+            </tr>
+            <tr>
+              <td class="field-name">rerouting_model</td>
+              <td class="field-type">string</td>
+              <td class="field-opt">optional</td>
+              <td class="field-desc"><code>"all_or_nothing"</code> (default) | <code>"frank_wolfe"</code>.</td>
+            </tr>
+            <tr>
+              <td class="field-name">simulation_duration_sec</td>
+              <td class="field-type">integer</td>
+              <td class="field-opt">optional</td>
+              <td class="field-desc">10–60 seconds. Default: 30.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4>NewRoadLink object</h4>
+        <table class="schema-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="field-name">link_id</td><td class="field-type">string</td><td class="field-desc">User-defined label for this link (e.g. <code>"BRIDGE-PLATTE-01"</code>). Appears in response.</td></tr>
+            <tr><td class="field-name">from_node_id</td><td class="field-type">string</td><td class="field-desc">OSMnx node ID where the new link originates.</td></tr>
+            <tr><td class="field-name">to_node_id</td><td class="field-type">string</td><td class="field-desc">OSMnx node ID where the new link terminates.</td></tr>
+            <tr><td class="field-name">length_m</td><td class="field-type">float</td><td class="field-desc">Link length in metres. Range: 50–20,000.</td></tr>
+            <tr><td class="field-name">lanes</td><td class="field-type">integer</td><td class="field-desc">Number of lanes per direction. Range: 1–8. Default: 2.</td></tr>
+            <tr><td class="field-name">speed_limit_kmh</td><td class="field-type">float</td><td class="field-desc">Free-flow speed. Range: 10–130. Default: 50.</td></tr>
+            <tr><td class="field-name">capacity_veh_hr_per_lane</td><td class="field-type">float</td><td class="field-desc">Vehicles per hour per lane. Range: 500–2,400. Default: 1800.</td></tr>
+            <tr><td class="field-name">infrastructure_type</td><td class="field-type">string</td><td class="field-desc"><code>"bridge"</code> (one-way) | <code>"bypass"</code> | <code>"connector"</code> | <code>"alternate_corridor"</code> (bidirectional).</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Response</h3>
+        <table class="schema-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td class="field-name">avg_travel_time_delta_pct</td><td class="field-type">float</td><td class="field-desc">Network-wide travel time change. Negative = improvement.</td></tr>
+            <tr><td class="field-name">traffic_redistribution_pct</td><td class="field-type">float</td><td class="field-desc">Percentage of total demand that uses at least one new link.</td></tr>
+            <tr><td class="field-name">vkt_delta_pct</td><td class="field-type">float</td><td class="field-desc">Vehicle-Kilometres-Travelled change. Negative = shorter total trips.</td></tr>
+            <tr><td class="field-name">relieved_segment_count</td><td class="field-type">integer</td><td class="field-desc">Existing edges with &gt;10% volume decrease (congestion relief).</td></tr>
+            <tr><td class="field-name">loaded_segment_count</td><td class="field-type">integer</td><td class="field-desc">Existing edges with &gt;10% volume increase near new links.</td></tr>
+            <tr><td class="field-name">new_links</td><td class="field-type">NewLinkResult[]</td><td class="field-desc">Assigned volume and utilisation per new link.</td></tr>
+            <tr><td class="field-name">top_relieved_edges</td><td class="field-type">CityEdgeResult[]</td><td class="field-desc">Top 20 edges most relieved by the new infrastructure.</td></tr>
+            <tr><td class="field-name">cesium_heatmap</td><td class="field-type">CityHeatmap</td><td class="field-desc">Congestion scalars for changed edges. New links rendered cyan in Cesium.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Examples</h3>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'ni-curl')">curl</div>
+          <div class="tab" onclick="switchTab(this,'ni-python')">Python</div>
+          <div class="tab" onclick="switchTab(this,'ni-response')">Response</div>
+        </div>
+
+        <div id="ni-curl" class="tab-panel active">
+<pre><span class="cmt"># Evaluate a new bridge across the South Platte River</span>
+curl -X POST http://localhost:8000/api/v1/simulate/city_infrastructure \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{
+    "new_links": [
+      {
+        "link_id": "BRIDGE-PLATTE-01",
+        "from_node_id": "271843629",
+        "to_node_id": "271843712",
+        "length_m": 240,
+        "lanes": 2,
+        "speed_limit_kmh": 50,
+        "capacity_veh_hr_per_lane": 1800,
+        "infrastructure_type": "bridge"
+      }
+    ],
+    "peak_period": "AM",
+    "rerouting_model": "frank_wolfe"
+  }'</span></pre>
+        </div>
+
+        <div id="ni-python" class="tab-panel">
+<pre><span class="kw">import</span> httpx
+
+response = httpx.post(
+    <span class="str">"http://localhost:8000/api/v1/simulate/city_infrastructure"</span>,
+    json={
+        <span class="str">"new_links"</span>: [
+            {
+                <span class="str">"link_id"</span>: <span class="str">"BRIDGE-PLATTE-01"</span>,
+                <span class="str">"from_node_id"</span>: <span class="str">"271843629"</span>,
+                <span class="str">"to_node_id"</span>: <span class="str">"271843712"</span>,
+                <span class="str">"length_m"</span>: <span class="num">240</span>,
+                <span class="str">"lanes"</span>: <span class="num">2</span>,
+                <span class="str">"speed_limit_kmh"</span>: <span class="num">50</span>,
+                <span class="str">"capacity_veh_hr_per_lane"</span>: <span class="num">1800</span>,
+                <span class="str">"infrastructure_type"</span>: <span class="str">"bridge"</span>
+            }
+        ],
+        <span class="str">"peak_period"</span>: <span class="str">"AM"</span>,
+        <span class="str">"rerouting_model"</span>: <span class="str">"frank_wolfe"</span>
+    },
+    timeout=<span class="num">90</span>
+)
+result = response.json()
+<span class="kw">for</span> link <span class="kw">in</span> result[<span class="str">"new_links"</span>]:
+    print(<span class="str">f"</span>{link['link_id']}<span class="str">: </span>{link['volume_assigned_veh_hr']:.0f}<span class="str"> veh/hr — </span>{link['utilisation_pct']:.1f}<span class="str">% utilised"</span>)</pre>
+        </div>
+
+        <div id="ni-response" class="tab-panel">
+<pre>{
+  <span class="key">"scenario"</span>: <span class="val">"city_infrastructure"</span>,
+  <span class="key">"avg_travel_time_delta_pct"</span>: <span class="num">-6.2</span>,
+  <span class="key">"traffic_redistribution_pct"</span>: <span class="num">0.14</span>,
+  <span class="key">"vkt_delta_pct"</span>: <span class="num">-2.8</span>,
+  <span class="key">"relieved_segment_count"</span>: <span class="num">38</span>,
+  <span class="key">"loaded_segment_count"</span>: <span class="num">7</span>,
+  <span class="key">"new_links"</span>: [
+    {
+      <span class="key">"link_id"</span>: <span class="val">"BRIDGE-PLATTE-01"</span>,
+      <span class="key">"volume_assigned_veh_hr"</span>: <span class="num">1420.0</span>,
+      <span class="key">"utilisation_pct"</span>: <span class="num">39.4</span>
+    }
+  ],
+  <span class="key">"top_relieved_edges"</span>: [
+    {
+      <span class="key">"edge_id"</span>: <span class="val">"5678901_6789012_0"</span>,
+      <span class="key">"road_name"</span>: <span class="val">"W Colfax Ave"</span>,
+      <span class="key">"volume_baseline_veh_hr"</span>: <span class="num">1640.0</span>,
+      <span class="key">"volume_simulated_veh_hr"</span>: <span class="num">1190.0</span>,
+      <span class="key">"congestion_scalar"</span>: <span class="num">0.51</span>,
+      <span class="key">"is_closed"</span>: <span class="kw">false</span>
+    }
+  ],
+  <span class="key">"cesium_heatmap"</span>: {
+    <span class="key">"edges"</span>: {
+      <span class="key">"5678901_6789012_0"</span>: <span class="num">0.51</span>,
+      <span class="key">"BRIDGE-PLATTE-01"</span>: <span class="num">0.39</span>
+    }
+  }
+}</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SHARED SCHEMAS ─── -->
+  <section id="schemas">
+    <h2>Shared Schemas</h2>
+
+    <h3>CityHeatmap</h3>
+    <p>
+      Returned by all three scenarios. Maps each road segment's OSM edge ID to a
+      normalized congestion scalar (0.0 = free-flow, 1.0 = fully saturated).
+      Used directly by the Cesium visualization layer to color road segments.
+    </p>
+    <pre>{
+  <span class="key">"edges"</span>: {
+    <span class="key">"&lt;edge_id&gt;"</span>: <span class="num">0.0</span>  <span class="cmt">-- 1.0   (float, 0 = green, 1 = red)</span>
+  }
+}</pre>
+    <div class="info-box note">
+      Only edges with changed congestion are included. Edges absent from the dict retain
+      their baseline color in the visualization.
+    </div>
+
+    <h3>CityEdgeResult</h3>
+    <p>Per-segment result returned in <code>top_congested_edges</code>, <code>top_relieved_edges</code>, etc.</p>
+    <table class="schema-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="field-name">edge_id</td><td class="field-type">string</td><td class="field-desc">OSMnx edge ID (format: <code>"u_v_key"</code>).</td></tr>
+        <tr><td class="field-name">road_name</td><td class="field-type">string</td><td class="field-desc">Human-readable road name from OSM (e.g. <code>"E Colfax Ave"</code>).</td></tr>
+        <tr><td class="field-name">length_m</td><td class="field-type">float</td><td class="field-desc">Segment length in metres.</td></tr>
+        <tr><td class="field-name">volume_baseline_veh_hr</td><td class="field-type">float</td><td class="field-desc">Assigned traffic volume before the scenario change.</td></tr>
+        <tr><td class="field-name">volume_simulated_veh_hr</td><td class="field-type">float</td><td class="field-desc">Assigned traffic volume after the scenario change.</td></tr>
+        <tr><td class="field-name">speed_baseline_kmh</td><td class="field-type">float</td><td class="field-desc">BPR-computed speed at baseline volume.</td></tr>
+        <tr><td class="field-name">speed_simulated_kmh</td><td class="field-type">float</td><td class="field-desc">BPR-computed speed at simulated volume.</td></tr>
+        <tr><td class="field-name">v_over_c_ratio</td><td class="field-type">float</td><td class="field-desc">Volume/capacity ratio after simulation. &gt;0.85 = congested.</td></tr>
+        <tr><td class="field-name">congestion_scalar</td><td class="field-type">float</td><td class="field-desc">Normalized 0–1 value = min(v/c, 1.0). Directly used for heatmap coloring.</td></tr>
+        <tr><td class="field-name">is_closed</td><td class="field-type">boolean</td><td class="field-desc">True if this edge was part of a closure in the request.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>IntersectionResult (Signal Timing only)</h3>
+    <table class="schema-table">
+      <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="field-name">signal_id</td><td class="field-type">string</td><td class="field-desc">ArcGIS TRAFFIC_SIGNAL_ID.</td></tr>
+        <tr><td class="field-name">lat / lon</td><td class="field-type">float</td><td class="field-desc">Intersection coordinates (WGS84).</td></tr>
+        <tr><td class="field-name">cycle_baseline_sec</td><td class="field-type">float</td><td class="field-desc">Baseline cycle length from signal_baseline.json.</td></tr>
+        <tr><td class="field-name">cycle_simulated_sec</td><td class="field-type">float</td><td class="field-desc">Overridden cycle length from request.</td></tr>
+        <tr><td class="field-name">delay_baseline_sec_veh</td><td class="field-type">float</td><td class="field-desc">Webster delay (sec/veh) at baseline timing.</td></tr>
+        <tr><td class="field-name">delay_simulated_sec_veh</td><td class="field-type">float</td><td class="field-desc">Webster delay (sec/veh) at new timing. Lower = better.</td></tr>
+        <tr><td class="field-name">queue_baseline_veh</td><td class="field-type">float</td><td class="field-desc">Vehicles queued at end of red phase (baseline).</td></tr>
+        <tr><td class="field-name">queue_simulated_veh</td><td class="field-type">float</td><td class="field-desc">Vehicles queued at end of red phase (simulated).</td></tr>
+        <tr><td class="field-name">throughput_delta_pct</td><td class="field-type">float</td><td class="field-desc">% change in vehicles processed per cycle.</td></tr>
+        <tr><td class="field-name">congestion_scalar</td><td class="field-type">float</td><td class="field-desc">Degree of saturation X, clamped to [0,1].</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ─── FORMULAS ─── -->
+  <section id="formulas">
+    <h2>Formulas Reference</h2>
+
+    <h3>BPR Travel Time (Bureau of Public Roads)</h3>
+    <p>Computes congested travel time from free-flow time and volume/capacity ratio. Used in all three scenarios.</p>
+    <div class="formula">
+      <var>t</var> = <var>t<sub>free</sub></var> × ( 1 + 0.15 × (<var>v</var> / <var>c</var>)<sup>4</sup> )<br/><br/>
+      <var>t<sub>free</sub></var> = free-flow travel time (sec) — from GPS median speed<br/>
+      <var>v</var> = volume (veh/hr)<br/>
+      <var>c</var> = capacity (veh/hr)<br/>
+      <span class="hl">congestion_scalar</span> = min(<var>v</var> / <var>c</var>, 1.0)
+    </div>
+
+    <h3>Webster Delay (HCM 2000)</h3>
+    <p>Intersection delay per vehicle at a signalized intersection. Used in Signal Timing scenario.</p>
+    <div class="formula">
+      λ = <var>g</var> / <var>C</var> &nbsp;&nbsp;&nbsp;<span class="cmt">green ratio</span><br/>
+      x = <var>q</var> / (<var>s</var> × λ) &nbsp;&nbsp;&nbsp;<span class="cmt">degree of saturation; s = 1900 × lanes (pcphgpl)</span><br/><br/>
+
+      d₁ = <var>C</var> × (1−λ)² / [ 2 × (1 − min(1,x) × λ) ] &nbsp;&nbsp;<span class="cmt">uniform delay</span><br/>
+      d₂ = 900<var>T</var> × [ (x−1) + √((x−1)² + 8k·x / (<var>c·T</var>)) ] &nbsp;&nbsp;<span class="cmt">T=0.25 hr, k=0.5</span><br/>
+      <span class="hl">d</span> = d₁ + d₂ &nbsp;&nbsp;&nbsp;<span class="cmt">seconds per vehicle</span><br/><br/>
+
+      queue = <var>q</var> × d / 3600 &nbsp;&nbsp;&nbsp;<span class="cmt">vehicles</span>
+    </div>
+
+    <h3>Frank-Wolfe Line Search (BPR integral)</h3>
+    <p>Used to find the optimal step size λ* in the Frank-Wolfe assignment loop.</p>
+    <div class="formula">
+      ∫₀<sup>v</sup> BPR(x) dx = <var>t<sub>free</sub></var> × ( <var>v</var> + 0.15 × <var>v</var>⁵ / (5 × <var>c</var>⁴) )<br/><br/>
+      λ* = argmin<sub>λ∈[0,1]</sub> Σ<sub>e</sub> ∫₀<sup>v_e+λ(y_e−v_e)</sup> BPR<sub>e</sub>(x) dx &nbsp;&nbsp;<span class="cmt">via bisection</span>
+    </div>
+
+    <h3>Peak Demand Scaling</h3>
+    <div class="formula">
+      demand_scaled = OD_demand × peak_factor<br/><br/>
+      AM peak (06:00–09:00): factor = <span class="num">1.8</span><br/>
+      PM peak (15:00–18:00): factor = <span class="num">2.1</span><br/>
+      OFF_PEAK:              factor = <span class="num">0.6</span>
+    </div>
+  </section>
+
+  <!-- ─── LIMITATIONS ─── -->
+  <section id="limitations">
+    <h2>Limitations</h2>
+    <p>
+      This section documents the known limitations of the current simulation system —
+      covering both the demo network and the pipeline-calibrated network.
+    </p>
+
+    <h3>Data Limitations</h3>
+    <table class="schema-table">
+      <thead><tr><th>Limitation</th><th>Detail</th><th>Workaround / Roadmap</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="field-name">Bus-only GPS calibration</td>
+          <td class="field-desc">
+            <code>bus_history.db</code> contains only RTD bus positions. Buses account for
+            ~6% of Denver vehicle trips. Car, truck, and LRT volumes are inferred using
+            a fixed modal-share constant, not measured. Highway edges (I-25, I-70) have
+            negligible bus coverage and rely entirely on HCM capacity models.
+          </td>
+          <td class="field-desc">Supplement with Denver DOT loop detector counts or HERE/TomTom speed data when available.</td>
+        </tr>
+        <tr>
+          <td class="field-name">Static assignment (no time dynamics)</td>
+          <td class="field-desc">
+            All three scenarios use static traffic assignment — volumes represent a steady-state
+            hourly average, not a dynamic within-hour progression. Queue build-up and dissipation
+            over time are not modelled. Peak spreading effects are captured only through the
+            AM/PM/OFF_PEAK demand multipliers.
+          </td>
+          <td class="field-desc">Dynamic traffic assignment (DTA) is deferred to a future version.</td>
+        </tr>
+        <tr>
+          <td class="field-name">No turn penalties or intersection delay in assignment</td>
+          <td class="field-desc">
+            AoN and Frank-Wolfe assignment use edge travel times only. Turn-movement delays,
+            prohibited turns, and intersection capacity are not modelled in the assignment step
+            (they appear only in the Webster analysis for the signal scenario).
+          </td>
+          <td class="field-desc">Add turn-delay lookup table from GTFS shapes or Denver signal phase data.</td>
+        </tr>
+        <tr>
+          <td class="field-name">Corrupt tail of bus_history.db</td>
+          <td class="field-desc">
+            The database has partial corruption beyond page 297,368, representing roughly
+            the final 5–10% of the capture period. All affected rows are skipped. Edges
+            with no GPS coverage in the readable window receive a synthetic volume of
+            65% × HCM capacity.
+          </td>
+          <td class="field-desc">Acquire a clean database export from the RTD AVL system for the same period.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Model Limitations</h3>
+    <table class="schema-table">
+      <thead><tr><th>Limitation</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="field-name">BPR α/β fixed at 0.15 / 4</td>
+          <td class="field-desc">
+            The Bureau of Public Roads function uses standard coefficients (α = 0.15, β = 4).
+            These are appropriate for US urban arterials but may under-predict congestion on
+            narrow residential streets and over-predict it on modern limited-access highways.
+            Calibrated coefficients per road class would improve accuracy.
+          </td>
+        </tr>
+        <tr>
+          <td class="field-name">Webster delay assumes under-saturation</td>
+          <td class="field-desc">
+            The HCM 2000 Webster model (d₁ + d₂) becomes unreliable when the degree of
+            saturation x approaches or exceeds 1.0. At x &gt; 0.95 the formula predicts
+            infinite delay; the implementation caps x at 1.0 to produce finite outputs,
+            but results above x = 0.90 should be interpreted as qualitative ("very high delay")
+            rather than quantitative.
+          </td>
+        </tr>
+        <tr>
+          <td class="field-name">Frank-Wolfe approximation in demo mode</td>
+          <td class="field-desc">
+            When <code>rerouting_model = "frank_wolfe"</code> is selected and the pipeline
+            has not been run, the service applies a fixed 0.78 dampening factor to AoN
+            assignment results rather than running true iterative equilibrium. This
+            approximation captures the general tendency of FW to distribute flows more
+            evenly, but is not a convergence-guaranteed equilibrium solution.
+            Run the pipeline to enable real Frank-Wolfe on the full 40k-edge network.
+          </td>
+        </tr>
+        <tr>
+          <td class="field-name">Demo network — 24 edges vs ~40k</td>
+          <td class="field-desc">
+            The built-in demo network covers only the 24 most significant Denver road segments.
+            Scenarios affecting edges not in the demo set (residential streets, suburb arterials)
+            will receive no output — only the 24 covered edges appear in responses.
+            This is expected behaviour; run the pipeline for full network coverage.
+          </td>
+        </tr>
+        <tr>
+          <td class="field-name">Signal timing — two-phase model only</td>
+          <td class="field-desc">
+            The signal timing scenario models each intersection as a simple two-phase signal
+            (NS green / EW green). Multi-phase signals with left-turn phases, protected-permissive
+            movements, or pedestrian phases are reduced to an equivalent two-phase representation.
+            Intersections with more than two competing movements will have less accurate
+            delay and queue estimates.
+          </td>
+        </tr>
+        <tr>
+          <td class="field-name">New infrastructure — no geometric routing</td>
+          <td class="field-desc">
+            The new infrastructure scenario assigns demand to new links using a capacity-weighted
+            gravity model rather than shortest-path routing from the specified
+            <code>from_node_id</code> / <code>to_node_id</code>. The link geometry is not
+            inserted into the graph. Utilisation figures are directionally correct but
+            exact volumes require true graph-based assignment (available after pipeline run).
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Scope Limitations</h3>
+    <div class="info-box note">
+      The following are explicitly out of scope for v1 and are documented here to set
+      correct expectations for what the API does and does not model.
+    </div>
+    <ul style="font-size:13px;color:#8aadcc;line-height:2;padding-left:20px;margin-bottom:16px;">
+      <li>No freight or heavy vehicle weight classes — all traffic treated as passenger car equivalents</li>
+      <li>No transit ridership modelling — bus route disruptions affect <em>road</em> capacity only</li>
+      <li>No pedestrian or cycling network — drive edges only</li>
+      <li>No parking supply/demand interaction</li>
+      <li>No weather or incident probability modelling</li>
+      <li>No emissions output (unlike the toll-plaza module which includes CO₂/NOₓ)</li>
+      <li>No multi-day or seasonal variation — single peak-period snapshot</li>
+    </ul>
+  </section>
+
+  <!-- ─── ERROR HANDLING ─── -->
+  <section id="errors">
+    <h2>Error Handling</h2>
+    <p>All errors return standard FastAPI HTTP responses:</p>
+    <table class="schema-table">
+      <thead><tr><th>Status</th><th>Cause</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>422</code></td>
+          <td class="field-desc">Pydantic validation failure</td>
+          <td class="field-desc"><code>capacity_reduction_pct</code> outside [0,100], <code>closures</code> empty, invalid <code>peak_period</code></td>
+        </tr>
+        <tr>
+          <td><code>500</code></td>
+          <td class="field-desc">Service error</td>
+          <td class="field-desc">Unknown <code>edge_id</code>, unreachable OD pair, network disconnected after closure</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-box caution">
+      If you close too many edges and the network becomes disconnected, some OD pairs will be
+      unreachable. The service handles this gracefully — lost demand is reported separately,
+      simulation continues with reachable pairs.
+    </div>
+
+    <h3>Timeout guidance</h3>
+    <p>
+      Set client timeout to at least <code>simulation_duration_sec + 30</code> seconds.
+      Frank-Wolfe with a dense OD matrix may take 20–60 seconds on the full Denver network.
+      All-or-Nothing typically completes in 2–8 seconds.
+    </p>
+  </section>
+
+</main>
+
+<script>
+function switchTab(el, panelId) {
+  const container = el.closest('.endpoint-body') || el.closest('section');
+  container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  container.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(panelId).classList.add('active');
+}
+
+// Highlight active nav link on scroll
+const sections = document.querySelectorAll('section[id]');
+const links = document.querySelectorAll('.nav-link');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 80) current = s.id;
+  });
+  links.forEach(l => {
+    l.classList.toggle('active', l.getAttribute('href') === '#' + current);
+  });
+});
+</script>
+</body>
+</html>

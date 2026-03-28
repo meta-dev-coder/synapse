@@ -15,7 +15,7 @@ const TABS: Tab[] = [
   { id: 'comparison',       label: 'Comparison' },
   { id: 'asset_health',     label: 'Asset Health' },
   { id: 'predictive_maint', label: 'Maintenance' },
-  { id: 'settings',         label: 'Settings' },
+  // { id: 'settings',         label: 'Settings' },
 ]
 
 interface Props {

@@ -91,3 +91,18 @@ select:focus {
   background: #3a3a6c;
   border-radius: 3px;
 }
+
+/* Denver dark geo-dashboard theme */
+:root {
+  --den-bg:          #0f172a;
+  --den-panel:       #1e293b;
+  --den-surface:     #334155;
+  --den-border:      #475569;
+  --den-primary:     #0078d4;
+  --den-success:     #22c55e;
+  --den-warning:     #f59e0b;
+  --den-danger:      #ef4444;
+  --den-text:        #f1f5f9;
+  --den-text-muted:  #94a3b8;
+  --den-font:        "Inter", "Segoe UI", sans-serif;
+}

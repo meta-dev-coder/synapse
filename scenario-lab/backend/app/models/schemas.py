@@ -383,3 +383,84 @@ class BaselineResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str = "ok"
+
+
+# ---------------------------------------------------------------------------
+# Denver Traffic Demo – Schemas
+# ---------------------------------------------------------------------------
+
+class DenverScenarioRequest(BaseModel):
+    ev_adoption_pct: float = Field(0.0, ge=0, le=30)
+    mode_shift_pct: float = Field(0.0, ge=0, le=15)
+    bus_efficiency_pct: float = Field(0.0, ge=0, le=20)
+    bike_lanes: bool = False
+
+
+class DenverScenarioResult(BaseModel):
+    co2_reduction_mt: float
+    co2_reduction_pct: float
+    net_zero_gap_remaining_mt: float
+    new_mode_split: dict[str, float]
+    new_ev_fleet_pct: float
+    traffic_improvement_pct: float
+    bus_delay_reduction_pct: float
+    cesium_layer_data: dict = {}
+    model_config = ConfigDict(extra='allow')
+
+
+class DenverBaselineResponse(BaseModel):
+    total_onroad_co2e_mt: float
+    fleet_bev_pct: float
+    mode_split: dict[str, float]
+    net_zero_gap_mt: float
+    annual_vmt_miles: float
+    transit_co2e_mt: float
+    transport_share_pct: float
+    congestion_index: float
+    avg_bus_delay_min: float
+
+
+class SavedScenario(BaseModel):
+    id: str
+    name: str
+    created_at: str
+    inputs: DenverScenarioRequest
+    results: DenverScenarioResult
+
+
+class SaveScenarioRequest(BaseModel):
+    name: str
+    inputs: DenverScenarioRequest
+    results: DenverScenarioResult
+
+
+class DenverCompareRequest(BaseModel):
+    scenario_a_id: str
+    scenario_b_id: str
+
+
+class DenverCompareResult(BaseModel):
+    scenario_a: SavedScenario
+    scenario_b: SavedScenario
+    delta: dict[str, float]
+    winner: str
+    insights: list[str]
+
+
+class GpsBus(BaseModel):
+    id: str
+    lat: float
+    lon: float
+    bearing: float
+
+
+class GpsFrame(BaseModel):
+    t: int
+    ts: str
+    buses: list[GpsBus]
+
+
+class GpsPositionsResponse(BaseModel):
+    frame_count: int
+    frames: list[GpsFrame]
+

@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.data.baseline_data import BASELINE_LANES, BASELINE_TOTALS
 from app.models.schemas import BaselineResponse, HealthResponse
-from app.routers import comparison, corridor, emission, evasion, toll
+from app.routers import comparison, corridor, denver, emission, evasion, toll
 
 # ---------------------------------------------------------------------------
 # Application factory
@@ -53,6 +53,7 @@ app.include_router(corridor.router, prefix=SIMULATE_PREFIX)
 app.include_router(emission.router, prefix=SIMULATE_PREFIX)
 app.include_router(evasion.router, prefix=SIMULATE_PREFIX)
 app.include_router(comparison.router, prefix=SIMULATE_PREFIX)
+app.include_router(denver.router, prefix="/api/v1/denver")
 
 # ---------------------------------------------------------------------------
 # Utility endpoints
