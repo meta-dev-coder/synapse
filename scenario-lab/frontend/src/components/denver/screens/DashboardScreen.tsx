@@ -128,7 +128,8 @@ const CORRIDORS: { name: string; color: string }[] = [
 export default function DashboardScreen({ state, dispatch }: DashboardScreenProps) {
   useEffect(() => {
     if (state.baseline !== null) return
-    fetch('http://localhost:8000/api/v1/denver/baseline')
+    const api = (import.meta.env.VITE_DENVER_API_BASE as string | undefined) ?? 'http://localhost:8000/api/v1/denver'
+    fetch(`${api}/baseline`)
       .then(r => r.json())
       .then(data => dispatch({ type: 'SET_BASELINE', baseline: data }))
       .catch(err => console.warn('Failed to load baseline:', err))

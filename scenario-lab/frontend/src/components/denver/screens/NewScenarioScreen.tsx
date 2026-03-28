@@ -163,7 +163,8 @@ export function NewScenarioNav({ state, dispatch }: NavProps) {
   function handleRun() {
     if (!canEditOps || running) return
     setRunning(true)
-    fetch('http://localhost:8000/api/v1/denver/scenario/run', {
+    const api = (import.meta.env.VITE_DENVER_API_BASE as string | undefined) ?? 'http://localhost:8000/api/v1/denver'
+    fetch(`${api}/scenario/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(inputs),
@@ -179,7 +180,8 @@ export function NewScenarioNav({ state, dispatch }: NavProps) {
   function handleSave() {
     if (!state.activeResult) return
     setSaving(true)
-    fetch('http://localhost:8000/api/v1/denver/scenarios', {
+    const api2 = (import.meta.env.VITE_DENVER_API_BASE as string | undefined) ?? 'http://localhost:8000/api/v1/denver'
+    fetch(`${api2}/scenarios`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

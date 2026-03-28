@@ -1,8 +1,8 @@
-import React from 'react'
+import React, { useRef } from 'react'
 import type { DenverState, Action } from './DenverApp'
 import TopBar from './TopBar'
 import LeftNav from './LeftNav'
-import DenverCesiumMap from './DenverCesiumMap'
+import DenverCesiumMap, { type DenverCesiumMapHandle } from './DenverCesiumMap'
 import MapControls from './MapControls'
 import BottomTimeline from './BottomTimeline'
 
@@ -16,6 +16,7 @@ interface GlobalLayoutProps {
 }
 
 export default function GlobalLayout({ state, dispatch, onBack, apiBase: _apiBase, rightPanel, navExpansion }: GlobalLayoutProps) {
+  const mapRef = useRef<DenverCesiumMapHandle>(null)
   const currentGpsFrame = state.gpsFrames[state.gpsFrameIndex] ?? null
 
   // Scenario overlay corridors
@@ -48,6 +49,7 @@ export default function GlobalLayout({ state, dispatch, onBack, apiBase: _apiBas
         {/* Map + controls area */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           <DenverCesiumMap
+            ref={mapRef}
             layers={state.mapLayers}
             opacity={state.mapOpacity}
             intensity={state.mapIntensity}
@@ -58,7 +60,13 @@ export default function GlobalLayout({ state, dispatch, onBack, apiBase: _apiBas
             compareBCorridors={compareBCorridors as Record<string, number> | null}
             highlightDataSource={state.selectedDataSourceId}
           />
-          <MapControls state={state} dispatch={dispatch} />
+          <MapControls
+            state={state}
+            dispatch={dispatch}
+            onZoomIn={() => mapRef.current?.zoomIn()}
+            onZoomOut={() => mapRef.current?.zoomOut()}
+            onResetView={() => mapRef.current?.resetView()}
+          />
 
           {/* Scenario preview label */}
           {state.selectedScenarioId && state.screen === 'scenarios' && (() => {

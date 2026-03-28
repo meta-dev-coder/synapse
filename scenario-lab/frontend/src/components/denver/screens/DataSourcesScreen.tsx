@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { DenverState, Action } from '../DenverApp'
 
-const API = 'http://localhost:8000/api/v1/denver'
+const API = (import.meta.env.VITE_DENVER_API_BASE as string | undefined) ?? 'http://localhost:8000/api/v1/denver'
 
 interface DataSource {
   id: string

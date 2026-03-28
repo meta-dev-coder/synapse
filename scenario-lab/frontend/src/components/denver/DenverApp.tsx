@@ -218,7 +218,7 @@ function reducer(state: DenverState, action: Action): DenverState {
   }
 }
 
-const API = 'http://localhost:8000/api/v1/denver'
+const API = (import.meta.env.VITE_DENVER_API_BASE as string | undefined) ?? 'http://localhost:8000/api/v1/denver'
 
 interface DenverAppProps {
   onBack: () => void

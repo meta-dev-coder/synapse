@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react'
 import * as Cesium from 'cesium'
 import type { DenverState } from './DenverApp'
 
@@ -60,13 +60,19 @@ interface DenverCesiumMapProps {
   onViewerReady?: (viewer: Cesium.Viewer) => void
 }
 
+export interface DenverCesiumMapHandle {
+  zoomIn: () => void
+  zoomOut: () => void
+  resetView: () => void
+}
+
 interface BusTooltip {
   busId: string
   x: number
   y: number
 }
 
-export default function DenverCesiumMap({
+const DenverCesiumMap = forwardRef<DenverCesiumMapHandle, DenverCesiumMapProps>(function DenverCesiumMap({
   layers,
   opacity,
   intensity,
@@ -77,7 +83,7 @@ export default function DenverCesiumMap({
   compareBCorridors,
   highlightDataSource,
   onViewerReady,
-}: DenverCesiumMapProps) {
+}, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<Cesium.Viewer | null>(null)
   const busEntityMap = useRef<Map<string, Cesium.Entity>>(new Map())
@@ -93,6 +99,30 @@ export default function DenverCesiumMap({
   void opacity
   void intensity
 
+  // Expose zoom/reset controls to parent via ref
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => {
+      const viewer = viewerRef.current
+      if (!viewer) return
+      const camera = viewer.camera
+      camera.zoomIn(camera.positionCartographic.height * 0.4)
+    },
+    zoomOut: () => {
+      const viewer = viewerRef.current
+      if (!viewer) return
+      const camera = viewer.camera
+      camera.zoomOut(camera.positionCartographic.height * 0.6)
+    },
+    resetView: () => {
+      const viewer = viewerRef.current
+      if (!viewer) return
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(-104.9903, 39.7392, 25000),
+        duration: 1.2,
+      })
+    },
+  }), [])
+
   // Initialize Cesium viewer once
   useEffect(() => {
     if (!containerRef.current || viewerRef.current) return
@@ -106,6 +136,12 @@ export default function DenverCesiumMap({
         Promise.resolve(new Cesium.UrlTemplateImageryProvider({
           url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           credit: '© OpenStreetMap contributors',
+          // OSM tiles are 256×256 — tell Cesium explicitly so it requests
+          // the correct zoom levels and doesn't under-sample at high zoom
+          tileWidth: 256,
+          tileHeight: 256,
+          minimumLevel: 0,
+          maximumLevel: 19,
         }))
       ),
       baseLayerPicker: false,
@@ -294,4 +330,6 @@ export default function DenverCesiumMap({
       )}
     </div>
   )
-}
+})
+
+export default DenverCesiumMap
