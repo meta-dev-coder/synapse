@@ -96,6 +96,7 @@ interface DenverState {
   selectedDataSourceId: string | null
   activeInputs: ScenarioInputs
   activeResult: ScenarioResult | null
+  scenarioRunning: boolean
   baseline: BaselineMetrics | null
 }
 
@@ -123,6 +124,7 @@ type Action =
   | { type: 'SELECT_DATA_SOURCE'; id: string | null }
   | { type: 'SET_ACTIVE_INPUTS'; inputs: Partial<ScenarioInputs> }
   | { type: 'SET_ACTIVE_RESULT'; result: ScenarioResult | null }
+  | { type: 'SET_SCENARIO_RUNNING'; value: boolean }
   | { type: 'SET_BASELINE'; baseline: BaselineMetrics }
 
 const initialState: DenverState = {
@@ -155,6 +157,7 @@ const initialState: DenverState = {
   selectedDataSourceId: null,
   activeInputs: { ev_adoption_pct: 0, mode_shift_pct: 0, bus_efficiency_pct: 0, bike_lanes: false },
   activeResult: null,
+  scenarioRunning: false,
   baseline: null,
 }
 
@@ -211,6 +214,8 @@ function reducer(state: DenverState, action: Action): DenverState {
       return { ...state, activeInputs: { ...state.activeInputs, ...action.inputs } }
     case 'SET_ACTIVE_RESULT':
       return { ...state, activeResult: action.result }
+    case 'SET_SCENARIO_RUNNING':
+      return { ...state, scenarioRunning: action.value }
     case 'SET_BASELINE':
       return { ...state, baseline: action.baseline }
     default:

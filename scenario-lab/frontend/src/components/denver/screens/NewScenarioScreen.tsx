@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import type { DenverState, Action, ScenarioResult } from '../DenverApp'
+import SimulationLog from '../../SimulationLog'
+import MethodologyPanel from '../../ui/MethodologyPanel'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -143,6 +145,15 @@ function ResultKpi({
 
 // ── Part A: NewScenarioNav ─────────────────────────────────────────────────────
 
+const DENVER_SIM_STEPS = [
+  'Loading Denver baseline (OSM + DRCOG data)...',
+  'Computing trip demand matrix...',
+  'Applying mode-shift model...',
+  'Running BPR traffic assignment...',
+  'Computing CO\u2082 and bus delay deltas...',
+  'Aggregating KPIs and heatmap...',
+]
+
 interface NavProps {
   state: DenverState
   dispatch: React.Dispatch<Action>
@@ -150,7 +161,7 @@ interface NavProps {
 
 export function NewScenarioNav({ state, dispatch }: NavProps) {
   const code = useMemo(() => randomCode(), [])
-  const [running, setRunning] = useState(false)
+  const running = state.scenarioRunning
   const [saving, setSaving] = useState(false)
   const [scenarioName] = useState(`Scenario ${code}`)
 
@@ -162,7 +173,7 @@ export function NewScenarioNav({ state, dispatch }: NavProps) {
 
   function handleRun() {
     if (!canEditOps || running) return
-    setRunning(true)
+    dispatch({ type: 'SET_SCENARIO_RUNNING', value: true })
     const api = (import.meta.env.VITE_DENVER_API_BASE as string | undefined) ?? 'http://localhost:8000/api/v1/denver'
     fetch(`${api}/scenario/run`, {
       method: 'POST',
@@ -174,7 +185,7 @@ export function NewScenarioNav({ state, dispatch }: NavProps) {
         dispatch({ type: 'SET_ACTIVE_RESULT', result: data })
       })
       .catch(err => console.warn('Scenario run failed:', err))
-      .finally(() => setRunning(false))
+      .finally(() => dispatch({ type: 'SET_SCENARIO_RUNNING', value: false }))
   }
 
   function handleSave() {
@@ -342,8 +353,9 @@ interface RightPanelProps {
 
 export function NewScenarioRightPanel({ state }: RightPanelProps) {
   const result = state.activeResult
+  const running = state.scenarioRunning
 
-  if (result === null) {
+  if (result === null && !running) {
     return (
       <div style={{
         flex: 1,
@@ -379,6 +391,19 @@ export function NewScenarioRightPanel({ state }: RightPanelProps) {
     )
   }
 
+  if (result === null && running) {
+    return (
+      <div style={{ padding: '24px 18px' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--den-text)', marginBottom: 14 }}>
+          Running Scenario…
+        </div>
+        <SimulationLog isRunning={running} simDuration={4} steps={DENVER_SIM_STEPS} />
+      </div>
+    )
+  }
+
+  if (result === null) return null
+
   const modeSplit = result.new_mode_split ?? {}
   const carPct = (modeSplit['car'] ?? 0) as number
   const transitPct = (modeSplit['transit'] ?? 0) as number
@@ -389,6 +414,8 @@ export function NewScenarioRightPanel({ state }: RightPanelProps) {
       <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--den-text)', marginBottom: 14 }}>
         Scenario Results
       </div>
+
+      <SimulationLog isRunning={running} simDuration={4} steps={DENVER_SIM_STEPS} />
 
       {/* CO₂ Reduction % */}
       <ResultKpi
@@ -448,6 +475,41 @@ export function NewScenarioRightPanel({ state }: RightPanelProps) {
         value={`${result.new_ev_fleet_pct.toFixed(1)}%`}
         color="var(--den-success)"
       />
+
+      <MethodologyPanel title="How this model works">
+        <pre style={{
+          margin: 0,
+          fontSize: 11,
+          lineHeight: 1.7,
+          color: 'var(--den-text-muted)',
+          whiteSpace: 'pre-wrap',
+          fontFamily: 'monospace',
+        }}>
+{`Model: Mode-Shift + BPR Traffic Assignment
+
+Step 1 — EV adoption:
+  New EV fleet % = baseline EV% + ev_adoption_pct input
+  CO₂ reduction from EVs: ΔEV_fleet × avg_trip_dist × (ICE_factor − EV_factor)
+  Emission factors: MOVES 3.0 (EPA)
+
+Step 2 — Mode shift (transit & active):
+  Trips diverted from car = total_trips × mode_shift_pct
+  CO₂ saved = diverted_trips × avg_dist × ICE_emission_factor
+  Bus delay reduction = f(bus_efficiency_pct) using linear scaling
+
+Step 3 — Bike lanes:
+  Adds 0.5% active-mode shift; minor additional CO₂ reduction
+
+Step 4 — BPR link performance:
+  t = t₀ × (1 + 0.15 × (V/C)⁴)
+  Traffic improvement = volume reduction from mode shift
+  V/C derived from Denver DRCOG network (24 links)
+
+Step 5 — Net zero gap:
+  Denver 2030 target: reduce 1.2M mt CO₂/year from 2005 baseline
+  Gap remaining = target − cumulative reductions from all scenarios`}
+        </pre>
+      </MethodologyPanel>
     </div>
   )
 }

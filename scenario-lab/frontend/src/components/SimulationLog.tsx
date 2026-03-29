@@ -12,6 +12,7 @@ const LOG_STEPS = [
 interface Props {
   isRunning: boolean
   simDuration: number
+  steps?: string[]
 }
 
 const SpinnerChar: React.FC = () => {
@@ -24,7 +25,8 @@ const SpinnerChar: React.FC = () => {
   return <span style={{ display: 'inline-block', width: 12 }}>{chars[i]}</span>
 }
 
-const SimulationLog: React.FC<Props> = ({ isRunning, simDuration }) => {
+const SimulationLog: React.FC<Props> = ({ isRunning, simDuration, steps }) => {
+  const activeSteps = steps ?? LOG_STEPS
   const [visibleSteps, setVisibleSteps] = useState(0)
   const [isDone, setIsDone] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -35,14 +37,14 @@ const SimulationLog: React.FC<Props> = ({ isRunning, simDuration }) => {
       wasRunningRef.current = true
       setVisibleSteps(1)
       setIsDone(false)
-      const stepMs = (simDuration / LOG_STEPS.length) * 1000
+      const stepMs = (simDuration / activeSteps.length) * 1000
       intervalRef.current = setInterval(() => {
-        setVisibleSteps((prev) => Math.min(prev + 1, LOG_STEPS.length))
+        setVisibleSteps((prev) => Math.min(prev + 1, activeSteps.length))
       }, stepMs)
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current)
       if (wasRunningRef.current) {
-        setVisibleSteps(LOG_STEPS.length)
+        setVisibleSteps(activeSteps.length)
         setIsDone(true)
         wasRunningRef.current = false
       }
@@ -67,7 +69,7 @@ const SimulationLog: React.FC<Props> = ({ isRunning, simDuration }) => {
         lineHeight: 1.9,
       }}
     >
-      {LOG_STEPS.map((step, i) => {
+      {activeSteps.map((step, i) => {
         const isCompleted = isDone || i < visibleSteps - 1
         const isCurrent = !isDone && i === visibleSteps - 1
         const isPending = !isDone && i >= visibleSteps
