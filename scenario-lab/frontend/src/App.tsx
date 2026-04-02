@@ -10,7 +10,7 @@ import AssetHealthScenario from './components/scenarios/AssetHealthScenario'
 import PredictiveMaintScenario from './components/scenarios/PredictiveMaintScenario'
 import SettingsScenario from './components/scenarios/SettingsScenario'
 import SimulationSelector from './components/SimulationSelector'
-import DenverApp from './components/denver/DenverApp'
+import DenverPulseApp from './components/denver-pulse/DenverPulseApp'
 
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -167,7 +167,7 @@ const App: React.FC = () => {
 
   if (activeModule === null) return <SimulationSelector onSelect={setActiveModule} />
   if (activeModule === 'toll_plaza') return <TollPlazaApp onBack={() => setActiveModule(null)} />
-  if (activeModule === 'denver_traffic') return <ErrorBoundary><DenverApp onBack={() => setActiveModule(null)} /></ErrorBoundary>
+  if (activeModule === 'denver_traffic') return <ErrorBoundary><DenverPulseApp onBack={() => setActiveModule(null)} /></ErrorBoundary>
   return null
 }
 

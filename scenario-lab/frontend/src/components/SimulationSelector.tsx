@@ -31,12 +31,12 @@ const CARDS: CardDef[] = [
   {
     id: 'denver_traffic',
     icon: '🏙️',
-    title: 'Denver City Traffic Simulation',
+    title: 'Denver Pulse - Policy Simulation',
     subtitle: 'City-scale network · Denver, CO',
     description:
-      'Simulate city-wide traffic impacts of road closures, signal timing optimisations, and new infrastructure using AoN and Frank-Wolfe assignment on the real OSMnx Denver network.',
-    tags: ['Road Closure', 'Signal Timing', 'New Infrastructure', 'AoN', 'Frank-Wolfe'],
-    status: 'dev',
+      'Policy scenario simulation for Denver city traffic. Select policies, adjust variables, and compare outcomes using real RTD GPS data and Denver GHG inventory.',
+    tags: ['Policy Simulation', 'Real GPS Data', 'GHG Analysis', 'Scenario Compare'],
+    status: 'live',
     borderColor: '#2196F3',
   },
   {
@@ -81,7 +81,9 @@ const Card: React.FC<{ card: CardDef; onSelect: (id: SimulationModule) => void }
       onMouseLeave={() => setHovered(false)}
       style={{
         background: hovered ? '#0f3460' : '#0a2744',
-        border: `1px solid ${hovered ? card.borderColor : '#1a3a5c'}`,
+        borderLeft: `1px solid ${hovered ? card.borderColor : '#1a3a5c'}`,
+        borderRight: `1px solid ${hovered ? card.borderColor : '#1a3a5c'}`,
+        borderBottom: `1px solid ${hovered ? card.borderColor : '#1a3a5c'}`,
         borderTop: `3px solid ${card.borderColor}`,
         borderRadius: 10,
         padding: '24px 22px',
