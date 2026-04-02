@@ -78,11 +78,12 @@ def get_neighborhoods() -> list[dict]:
 
     results = []
     for _, row in gdf.iterrows():
+        typology = row.get("TYPOLOGY")
         results.append(
             {
                 "id": str(row["NBHD_ID"]),
                 "name": row["NBHD_NAME"],
-                "typology": row.get("TYPOLOGY"),
+                "typology": typology if isinstance(typology, str) else None,
                 "area_km2": round(row["area_km2"], 4),
             }
         )
