@@ -1,7 +1,7 @@
 // Denver Pulse — API client + TypeScript interfaces
 // All API calls hit http://localhost:8000/api/v1/denver-pulse
 
-const BASE = 'http://localhost:8000/api/v1/denver-pulse'
+const BASE = (import.meta.env.VITE_DENVER_API_BASE as string | undefined)?.replace('/api/v1/denver', '/api/v1/denver-pulse') ?? 'http://localhost:8000/api/v1/denver-pulse'
 
 // ---------------------------------------------------------------------------
 // Interfaces (shared contract with backend Pydantic schemas)
@@ -209,7 +209,7 @@ export interface TrafficSimInitResponse {
 // Traffic Sim API client
 // ---------------------------------------------------------------------------
 
-const TRAFFIC_SIM_BASE = 'http://localhost:8000/api/v1/denver/traffic-sim'
+const TRAFFIC_SIM_BASE = (import.meta.env.VITE_DENVER_API_BASE as string | undefined)?.replace('/api/v1/denver', '/api/v1/denver/traffic-sim') ?? 'http://localhost:8000/api/v1/denver/traffic-sim'
 
 async function reqTrafficSim<T>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(`${TRAFFIC_SIM_BASE}${path}`, {

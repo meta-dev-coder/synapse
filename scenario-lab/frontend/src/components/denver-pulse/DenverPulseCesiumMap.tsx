@@ -203,7 +203,8 @@ const DenverPulseCesiumMap: React.FC<Props> = ({ metric, cesiumEdges, height = '
   // Fetch GPS frames when showBuses enabled
   useEffect(() => {
     if (!showBuses) return
-    fetch('http://localhost:8000/api/v1/denver/gps/positions')
+    const gpsBase = (import.meta.env.VITE_DENVER_API_BASE as string | undefined) ?? 'http://localhost:8000/api/v1/denver'
+    fetch(`${gpsBase}/gps/positions`)
       .then(r => r.json())
       .then((data: { frame_count: number; frames: GpsFrame[] }) => {
         setGpsFrames(data.frames || [])
