@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import functools
 import logging
+import pickle
+import threading
 from collections import Counter
 from pathlib import Path
 from uuid import uuid4
@@ -24,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-VEHICLE_DENSITY = 30  # vehicles per km²
+DEFAULT_VEHICLE_DENSITY = 60  # vehicles per km²
 MAX_VEHICLES = 500
 
 MODE_SPLIT = {"car": 0.75, "truck": 0.10, "van": 0.08, "bus": 0.05, "bike": 0.02}
@@ -42,6 +44,12 @@ GEOJSON_PATH = (
 
 ox.settings.use_cache = True
 ox.settings.cache_folder = str(Path(__file__).parent.parent.parent / ".osmnx_cache")
+
+# ---------------------------------------------------------------------------
+# Graph pickle cache directory
+# ---------------------------------------------------------------------------
+
+_GRAPH_CACHE_DIR = Path(__file__).parent.parent.parent / ".graph_cache"
 
 # ---------------------------------------------------------------------------
 # Module-level caches
@@ -118,17 +126,30 @@ def _get_neighborhood_polygon(neighborhood_id: str) -> tuple[Polygon, float]:
 
 
 # ---------------------------------------------------------------------------
-# Internal: road graph
+# Internal: road graph (with pickle persistence)
 # ---------------------------------------------------------------------------
 
 _graph_cache: dict[str, nx.Graph] = {}
 
 
 def _get_road_graph(polygon: Polygon, cache_key: str) -> nx.Graph:
-    """Fetch road graph for the polygon via OSMnx (cached)."""
+    """Fetch road graph for the polygon via OSMnx (cached in-memory + pickle)."""
     if cache_key in _graph_cache:
         return _graph_cache[cache_key]
 
+    # Try loading from pickle on disk
+    pickle_path = _GRAPH_CACHE_DIR / f"{cache_key}.pkl"
+    if pickle_path.exists():
+        try:
+            with open(pickle_path, "rb") as f:
+                G = pickle.load(f)
+            _graph_cache[cache_key] = G
+            logger.info("Loaded graph from pickle: %s", cache_key)
+            return G
+        except Exception:
+            logger.warning("Failed to load pickle for %s, re-fetching", cache_key)
+
+    # Fetch from Overpass API
     try:
         G = ox.graph_from_polygon(polygon, network_type="drive")
     except Exception:
@@ -136,6 +157,16 @@ def _get_road_graph(polygon: Polygon, cache_key: str) -> nx.Graph:
         G = nx.Graph()
 
     _graph_cache[cache_key] = G
+
+    # Persist to disk for next startup
+    try:
+        _GRAPH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        with open(pickle_path, "wb") as f:
+            pickle.dump(G, f)
+        logger.info("Saved graph pickle: %s", cache_key)
+    except Exception:
+        logger.warning("Failed to save pickle for %s", cache_key)
+
     return G
 
 
@@ -192,12 +223,12 @@ def _generate_vehicle_paths(G: nx.Graph, num_vehicles: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-def init_simulation(neighborhood_id: str) -> dict:
+def init_simulation(neighborhood_id: str, density: int = DEFAULT_VEHICLE_DENSITY) -> dict:
     """Initialise a traffic simulation for a given neighborhood."""
     polygon, area_km2 = _get_neighborhood_polygon(neighborhood_id)
     G = _get_road_graph(polygon, neighborhood_id)
 
-    vehicle_count = min(int(area_km2 * VEHICLE_DENSITY), MAX_VEHICLES)
+    vehicle_count = min(int(area_km2 * density), MAX_VEHICLES)
     vehicles = _generate_vehicle_paths(G, vehicle_count)
 
     boundary = [[c[0], c[1]] for c in polygon.exterior.coords]
@@ -228,16 +259,30 @@ def repath_vehicles(neighborhood_id: str, count: int) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Public: city-wide simulation (for Denver Pulse dashboard)
+# City-wide simulation with pre-generated path pool
 # ---------------------------------------------------------------------------
 
 # Denver downtown core bounding box (compact area for fast OSMnx fetch)
 _DENVER_CORE_BBOX = (-105.01, 39.725, -104.97, 39.755)  # west, south, east, north
 _CITY_VEHICLE_COUNT = 200
 
+# Pre-generated path pool
+_path_pool: list[dict] = []
+_pool_lock = threading.Lock()
+_POOL_TARGET = 500
+_POOL_LOW_WATERMARK = 100
 
-def init_city_simulation() -> dict:
-    """Initialise a city-wide traffic simulation for the Denver Pulse dashboard."""
+
+def _refill_pool(G: nx.Graph, target: int = _POOL_TARGET) -> None:
+    """Generate paths to refill the pool."""
+    new_paths = _generate_vehicle_paths(G, target)
+    with _pool_lock:
+        _path_pool.extend(new_paths)
+    logger.info("Pool refilled: %d paths now available", len(_path_pool))
+
+
+def _ensure_city_graph() -> nx.Graph:
+    """Ensure the city-wide road graph is loaded and return it."""
     cache_key = "__denver_core__"
     if cache_key not in _graph_cache:
         west, south, east, north = _DENVER_CORE_BBOX
@@ -245,9 +290,40 @@ def init_city_simulation() -> dict:
             (west, south), (east, south), (east, north), (west, north), (west, south)
         ])
         _get_road_graph(polygon, cache_key)
+    return _graph_cache[cache_key]
 
-    G = _graph_cache[cache_key]
-    vehicles = _generate_vehicle_paths(G, _CITY_VEHICLE_COUNT)
+
+def warm_city_cache() -> None:
+    """Pre-load graph and generate path pool. Called from startup lifespan."""
+    try:
+        G = _ensure_city_graph()
+        _refill_pool(G, _POOL_TARGET)
+        logger.info("City cache warmed: %d paths in pool", len(_path_pool))
+    except Exception:
+        logger.exception("Failed to warm city cache")
+
+
+def init_city_simulation() -> dict:
+    """Initialise a city-wide traffic simulation for the Denver Pulse dashboard."""
+    G = _ensure_city_graph()
+
+    # Draw from pool if available, otherwise generate on-demand
+    with _pool_lock:
+        if len(_path_pool) >= _CITY_VEHICLE_COUNT:
+            vehicles = _path_pool[:_CITY_VEHICLE_COUNT]
+            del _path_pool[:_CITY_VEHICLE_COUNT]
+        else:
+            vehicles = list(_path_pool)
+            _path_pool.clear()
+
+    # If pool didn't have enough, generate the rest
+    shortfall = _CITY_VEHICLE_COUNT - len(vehicles)
+    if shortfall > 0:
+        vehicles.extend(_generate_vehicle_paths(G, shortfall))
+
+    # Trigger background refill if pool is low
+    if len(_path_pool) < _POOL_LOW_WATERMARK:
+        threading.Thread(target=_refill_pool, args=(G,), daemon=True).start()
 
     west, south, east, north = _DENVER_CORE_BBOX
     boundary = [
@@ -270,8 +346,23 @@ def init_city_simulation() -> dict:
 
 def repath_city_vehicles(count: int) -> list[dict]:
     """Generate new vehicle paths for the city-wide simulation."""
-    cache_key = "__denver_core__"
-    if cache_key not in _graph_cache:
-        init_city_simulation()
-    G = _graph_cache[cache_key]
-    return _generate_vehicle_paths(G, count)
+    G = _ensure_city_graph()
+
+    # Draw from pool
+    with _pool_lock:
+        if len(_path_pool) >= count:
+            vehicles = _path_pool[:count]
+            del _path_pool[:count]
+        else:
+            vehicles = list(_path_pool)
+            _path_pool.clear()
+
+    shortfall = count - len(vehicles)
+    if shortfall > 0:
+        vehicles.extend(_generate_vehicle_paths(G, shortfall))
+
+    # Trigger background refill if pool is low
+    if len(_path_pool) < _POOL_LOW_WATERMARK:
+        threading.Thread(target=_refill_pool, args=(G,), daemon=True).start()
+
+    return vehicles

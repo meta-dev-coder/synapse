@@ -39,8 +39,9 @@ async def list_neighborhoods() -> list[NeighborhoodInfo]:
     summary="Initialise traffic simulation for a neighborhood",
 )
 async def sim_init(body: TrafficSimInitRequest) -> TrafficSimInitResponse:
+    import asyncio
     try:
-        result = init_simulation(body.neighborhood_id)
+        result = await asyncio.to_thread(init_simulation, body.neighborhood_id, body.density)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     return TrafficSimInitResponse(**result)
@@ -52,8 +53,9 @@ async def sim_init(body: TrafficSimInitRequest) -> TrafficSimInitResponse:
     summary="Generate new vehicle paths",
 )
 async def sim_repath(body: TrafficSimRepathRequest) -> TrafficSimRepathResponse:
+    import asyncio
     try:
-        vehicles = repath_vehicles(body.neighborhood_id, body.count)
+        vehicles = await asyncio.to_thread(repath_vehicles, body.neighborhood_id, body.count)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     return TrafficSimRepathResponse(vehicles=vehicles)

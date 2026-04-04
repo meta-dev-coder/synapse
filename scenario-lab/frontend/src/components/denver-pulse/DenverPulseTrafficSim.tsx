@@ -93,10 +93,8 @@ const DenverPulseTrafficSim: React.FC = () => {
             metric="congestion"
             cesiumEdges={{}}
             height="100%"
-            showBuses={false}
             trafficSimPositions={positions.length > 0 ? positions : null}
             trafficSimBoundary={simData?.boundary ?? null}
-            flyToBoundary
           />
         </Suspense>
 

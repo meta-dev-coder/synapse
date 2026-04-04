@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from app.data.denver_pulse_db import (
@@ -31,7 +31,7 @@ from app.models.denver_pulse_schemas import (
     DenverPulseSimulateResponse,
     DenverPulseSliders,
 )
-from app.services.denver_pulse_service import get_dashboard_data, run_simulate
+from app.services.denver_pulse_service import get_dashboard_data, run_simulate, generate_feed_alerts
 from app.services.denver_traffic_sim_service import init_city_simulation, repath_city_vehicles
 
 router = APIRouter(tags=["Denver Pulse"])
@@ -82,6 +82,11 @@ _POLICY_LABELS: dict[str, str] = {
 async def get_dashboard() -> DenverPulseDashboardResponse:
     result = get_dashboard_data(_DAILY_STATS)
     return DenverPulseDashboardResponse(**result)
+
+
+@router.get("/region-alerts/feed", summary="Simulation feed: 2 new alerts per region per tick")
+async def get_region_alert_feed(tick: int = Query(1, ge=1)):
+    return generate_feed_alerts(tick)
 
 
 @router.post("/simulate", response_model=DenverPulseSimulateResponse, summary="Run a policy simulation")
@@ -286,17 +291,41 @@ async def export_comparison(body: DenverPulseCompareExportRequest) -> Response:
 
 
 # ---------------------------------------------------------------------------
+# Frontend log sink — writes browser logs to .logs/frontend.log
+# ---------------------------------------------------------------------------
+
+_FRONTEND_LOG = Path(__file__).parent.parent.parent / ".logs" / "frontend.log"
+
+
+@router.post("/log", include_in_schema=False)
+async def frontend_log(request: Request) -> dict:
+    _FRONTEND_LOG.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        raw = await request.body()
+        data = json.loads(raw)
+        lines = data.get("lines", [])
+    except Exception:
+        lines = [raw.decode("utf-8", errors="replace") if isinstance(raw, (bytes, bytearray)) else str(raw)]
+    with open(_FRONTEND_LOG, "a") as f:
+        for line in lines:
+            f.write(str(line) + "\n")
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
 # Traffic dots (city-wide synthetic vehicles for dashboard)
 # ---------------------------------------------------------------------------
 
 
 @router.get("/traffic-dots", summary="City-wide synthetic vehicle paths for dashboard")
 async def get_traffic_dots() -> dict:
-    return init_city_simulation()
+    import asyncio
+    return await asyncio.to_thread(init_city_simulation)
 
 
 @router.post("/traffic-dots/repath", summary="Replenish exhausted city vehicles")
 async def repath_traffic_dots(body: dict) -> dict:
+    import asyncio
     count = body.get("count", 10)
-    vehicles = repath_city_vehicles(count)
+    vehicles = await asyncio.to_thread(repath_city_vehicles, count)
     return {"vehicles": vehicles}

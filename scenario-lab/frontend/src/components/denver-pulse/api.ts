@@ -58,11 +58,25 @@ export interface DenverPulseAlert {
   title: string
   description: string
   timestamp: string
+  region_id?: string | null
+  region_name?: string | null
+  metric_type?: string          // traffic / transit / emissions / construction
+  severity_label?: string       // CRITICAL / WARNING / CAUTION / NORMAL / INFO
+  trend_pct?: number | null     // positive = worsening, negative = improving
+}
+
+export interface RegionAlertGroup {
+  region_id: string
+  region_name: string
+  summary_level: 'red' | 'orange' | 'yellow' | 'green' | 'blue'
+  alerts: DenverPulseAlert[]
 }
 
 export interface DenverPulseTrends {
   labels: string[]
   emissions: number[]
+  congestion: number[]    // 0–100 %
+  speed: number[]         // km/h
   car_pct: number[]
   pt_pct: number[]
   bike_pct: number[]
@@ -77,6 +91,7 @@ export interface DenverPulseDashboardResponse {
   trends_ytd: DenverPulseTrends
   alerts: DenverPulseAlert[]
   cesium_edges: Record<string, Record<string, number>>
+  region_alerts: RegionAlertGroup[]
 }
 
 export interface DenverPulseSaveRequest {
@@ -161,6 +176,9 @@ export const api = {
   exportScenarioUrl: (id: string, format: 'csv' | 'pdf') =>
     `${BASE}/scenarios/${id}/export?format=${format}`,
 
+  getRegionAlertFeed: (tick: number) =>
+    req<RegionAlertGroup[]>(`/region-alerts/feed?tick=${tick}`),
+
   exportComparison: (body: { scenario_ids: string[]; format: string }) =>
     fetch(`${BASE}/scenarios/compare/export`, {
       method: 'POST',
@@ -227,7 +245,7 @@ export const trafficSimApi = {
   getNeighborhoods: () =>
     reqTrafficSim<NeighborhoodInfo[]>('/neighborhoods'),
 
-  initTrafficSim: (body: { neighborhood_id: string }) =>
+  initTrafficSim: (body: { neighborhood_id: string; density?: number }) =>
     reqTrafficSim<TrafficSimInitResponse>('/init', {
       method: 'POST',
       body: JSON.stringify(body),

@@ -63,11 +63,25 @@ class DenverPulseAlert(BaseModel):
     title: str
     description: str
     timestamp: str
+    region_id: Optional[str] = None
+    region_name: Optional[str] = None
+    metric_type: str = "traffic"        # traffic / transit / emissions / construction
+    severity_label: str = "INFO"        # CRITICAL / WARNING / CAUTION / NORMAL / INFO
+    trend_pct: Optional[float] = None   # positive = worsening, negative = improving
+
+
+class RegionAlertGroup(BaseModel):
+    region_id: str
+    region_name: str
+    summary_level: str                  # worst alert level for dot coloring
+    alerts: list[DenverPulseAlert]
 
 
 class DenverPulseTrends(BaseModel):
     labels: list[str]
     emissions: list[float]
+    congestion: list[float]   # 0–100 %
+    speed: list[float]        # km/h
     car_pct: list[float]
     pt_pct: list[float]
     bike_pct: list[float]
@@ -82,6 +96,7 @@ class DenverPulseDashboardResponse(BaseModel):
     trends_ytd: DenverPulseTrends
     alerts: list[DenverPulseAlert]
     cesium_edges: dict[str, dict[str, float]]
+    region_alerts: list[RegionAlertGroup] = []
 
 
 # -- Saved Scenario --
@@ -148,6 +163,7 @@ class TrafficSimVehicle(BaseModel):
 
 class TrafficSimInitRequest(BaseModel):
     neighborhood_id: str
+    density: int = 60  # vehicles per km²
 
 
 class TrafficSimInitResponse(BaseModel):

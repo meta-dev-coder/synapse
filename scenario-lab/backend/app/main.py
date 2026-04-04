@@ -7,12 +7,32 @@ the baseline data and health-check endpoints at /api/v1.
 
 from __future__ import annotations
 
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.data.baseline_data import BASELINE_LANES, BASELINE_TOTALS
 from app.models.schemas import BaselineResponse, HealthResponse
 from app.routers import comparison, corridor, denver, denver_pulse, denver_traffic_sim, emission, evasion, toll
+from app.services.denver_traffic_sim_service import warm_city_cache
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Startup lifespan — warm graph + path pool in background thread
+# ---------------------------------------------------------------------------
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, warm_city_cache)
+    logger.info("City cache warming started in background thread")
+    yield
+
 
 # ---------------------------------------------------------------------------
 # Application factory
@@ -28,6 +48,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------
