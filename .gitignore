@@ -54,3 +54,6 @@ scenario-lab/backend/.graph_cache/*
 scenario-lab/backend/.osmnx_cache/*
 
 scenario-lab/backend/scenarios.db
+denver-main/*.
+review-comments UI n flow/*
+scenario-lab/backend/scenarios.db
