@@ -402,15 +402,14 @@ const DenverPulseCesiumMap: React.FC<Props> = memo(({
       const altitudeM = Math.max(spanMetres * 1.2, 2000)
       zoneFlyDestRef.current = { lon: centerLon, lat: centerLat, alt: altitudeM }
       dpLog('MAP:boundary', `zone dest stored: center (${centerLon.toFixed(4)},${centerLat.toFixed(4)}) alt=${altitudeM.toFixed(0)}m`)
-      // Auto-fly to zone then lock camera
+      // Lock camera first, then fly — so the lock holds even if user touches the map
+      // during the animation (which would otherwise cancel the complete callback)
+      viewer.scene.screenSpaceCameraController.enableInputs = false
+      setCameraLocked(true)
       viewer.camera.flyTo({
         destination: Cesium.Cartesian3.fromDegrees(centerLon, centerLat, altitudeM),
         orientation: { heading: 0, pitch: Cesium.Math.toRadians(-90), roll: 0 },
         duration: 1.5,
-        complete: () => {
-          viewer.scene.screenSpaceCameraController.enableInputs = false
-          setCameraLocked(true)
-        },
       })
     }
   }, [trafficSimBoundary, cameraAltitude])

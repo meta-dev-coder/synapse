@@ -228,9 +228,10 @@ const DenverPulseDashboard: React.FC<{ timeWindow?: TimeWindow }> = ({ timeWindo
       .getDashboard()
       .then(d => {
         dpLog('DASH:api', '/dashboard OK', { kpis: !!d.kpis, alerts: d.alerts?.length, edges: Object.keys(d.cesium_edges || {}) })
-        // Stamp initial alerts with a cached "now - 10 min" time stored in localStorage.
-        // This makes alerts look ~10 minutes old on first load; subsequent opens reuse
-        // the same cached timestamp so the time doesn't reset on every page visit.
+        // Only patch alerts[0] (the live-timestamp congestion alert) per region.
+        // alerts[1] ("Today, 08:52 AM") and alerts[2] ("Yesterday") are already
+        // hardcoded with intentionally varied times — leave them untouched.
+        // Cache the patched time in localStorage so returning visitors see the same timestamp.
         const DP_TS_KEY = 'dp_initial_alert_ts'
         let storedTs = localStorage.getItem(DP_TS_KEY)
         if (!storedTs) {
@@ -240,14 +241,13 @@ const DenverPulseDashboard: React.FC<{ timeWindow?: TimeWindow }> = ({ timeWindo
         const initialTimeStr = new Date(Number(storedTs)).toLocaleTimeString('en-US', {
           hour: '2-digit', minute: '2-digit',
         })
-        const patchAlerts = <T extends { timestamp: string }>(arr: T[]): T[] =>
-          arr.map(a => ({ ...a, timestamp: initialTimeStr }))
         setDashboardData({
           ...d,
-          alerts: patchAlerts(d.alerts ?? []),
           region_alerts: (d.region_alerts ?? []).map(g => ({
             ...g,
-            alerts: patchAlerts(g.alerts),
+            alerts: g.alerts.length > 0
+              ? [{ ...g.alerts[0], timestamp: initialTimeStr }, ...g.alerts.slice(1)]
+              : g.alerts,
           })),
         })
         setLoading(false)
