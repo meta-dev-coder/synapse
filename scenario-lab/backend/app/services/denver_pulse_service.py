@@ -207,6 +207,33 @@ def get_dashboard_data(daily_stats: list[dict]) -> dict:
         d = date.fromisoformat(rec["date"]) + timedelta(days=offset)
         rec["_shifted_date"] = d
 
+    # Apply realistic day-of-week traffic patterns.
+    # Multipliers are relative to the per-record baseline so the pattern
+    # stacks on top of any longer-term trend already in the data.
+    #   Mon=0 … Sun=6
+    DOW_CI    = {0: 1.06, 1: 1.12, 2: 1.09, 3: 1.07, 4: 0.90, 5: 0.60, 6: 0.50}
+    DOW_SPEED = {0: 0.93, 1: 0.90, 2: 0.92, 3: 0.93, 4: 0.98, 5: 1.20, 6: 1.25}
+    DOW_GHG   = {0: 1.00, 1: 1.00, 2: 1.00, 3: 1.00, 4: 0.95, 5: 0.70, 6: 0.65}
+
+    for rec in stats:
+        dow = rec["_shifted_date"].weekday()
+        ci  = round(min(1.0, rec.get("congestion_index", 0.376) * DOW_CI[dow]), 4)
+        spd = round(min(65.0, rec.get("avg_speed_kmh", 40.0) * DOW_SPEED[dow]), 1)
+        rec["congestion_index"] = ci
+        rec["avg_speed_kmh"]    = spd
+        rec["ghg_tco2e"]        = round(
+            DAILY_GHG_BASE_TCO2E * (1 + (ci - 0.376) * 0.12) * DOW_GHG[dow], 1
+        )
+        if dow in (5, 6):   # weekend mode-shift: more active travel
+            car  = round(rec.get("car_pct",  45.0) - 6.0, 1)
+            bike = round(rec.get("bike_pct", 15.0) + 4.0, 1)
+            walk = round(rec.get("walk_pct", 10.0) + 2.0, 1)
+            pt   = round(100.0 - car - bike - walk, 1)
+            rec["car_pct"]  = car
+            rec["pt_pct"]   = max(0.0, pt)
+            rec["bike_pct"] = bike
+            rec["walk_pct"] = walk
+
     current = stats[-1]
     prev_idx = max(0, len(stats) - 8)
     prev = stats[prev_idx]
@@ -552,16 +579,19 @@ def _generate_synthetic_stats(n: int) -> list[dict]:
     rng = random.Random(42)
     base_date = date.today() - timedelta(days=n)
     records = []
-    speed = 31.2   # → ci ≈ 0.376, matching TomTom 2025 Denver baseline (37.6%)
+    # Start near Denver TomTom 2025 baseline (37.6 % congestion → speed ~31.2 km/h).
+    # Use a wider random walk (±3 km/h) so underlying day-to-day variation is visible
+    # before the DOW overlay is applied by get_dashboard_data().
+    speed = 31.2
     for i in range(n):
-        speed += rng.uniform(-1.5, 1.5)
-        speed = max(22.0, min(48.0, speed))
-        ci = round(max(0.0, min(1.0, 1 - speed / 50.0)), 4)
+        speed += rng.uniform(-3.0, 3.0)
+        speed = max(20.0, min(46.0, speed))
+        ci  = round(max(0.0, min(1.0, 1 - speed / 50.0)), 4)
         ghg = round(DAILY_GHG_BASE_TCO2E * (1 + (ci - 0.376) * 0.12), 1)
-        pt = round(30.0 + rng.uniform(-3, 3), 2)
+        pt  = round(30.0 + rng.uniform(-4, 4), 2)
         car = round(100.0 - pt - 15.0 - 10.0, 2)
         car = max(20.0, min(65.0, car))
-        pt = round(100.0 - car - 15.0 - 10.0, 2)
+        pt  = round(100.0 - car - 15.0 - 10.0, 2)
         records.append({
             "date": (base_date + timedelta(days=i)).isoformat(),
             "avg_speed_kmh": round(speed, 1),

@@ -4,7 +4,6 @@ import TrendSparkline from './TrendSparkline'
 import DenverPulseCesiumMap from './DenverPulseCesiumMap'
 import useTrafficSimLoop from './useTrafficSimLoop'
 import RegionAlertPanel from './RegionAlertPanel'
-import useAutoCycle from './useAutoCycle'
 import useLiveKpis from './useLiveKpis'
 import useRegionAlertFeed from './useRegionAlertFeed'
 
@@ -37,6 +36,34 @@ const TOP_ZONES = [
   { id: '70', name: 'Washington Park' },
 ]
 
+// Per-zone GHG scaling relative to city total (2024 Denver GHG Inventory area emissions)
+// scale: fraction of city-wide ghg_tco2e attributed to this neighborhood
+// trend: override trend pct vs last week for this zone
+const ZONE_GHG: Record<string, { scale: number; trend: number }> = {
+  '9':  { scale: 0.063, trend: -3.2 },  // Capitol Hill — dense residential + transit
+  '13': { scale: 0.074, trend:  1.8 },  // Cherry Creek — commercial corridor, slight growth
+  '14': { scale: 0.032, trend: -1.5 },  // City Park — park-heavy, low vehicle emissions
+  '20': { scale: 0.039, trend: -2.1 },  // Congress Park — residential, EV adoption
+  '70': { scale: 0.033, trend: -4.3 },  // Washington Park — park & trails, low traffic
+}
+
+// Per-zone overrides for speed, congestion, and mode share
+// Values reflect neighbourhood character; live jitter is layered on top.
+// speedKmh / congPct / modeCar|Pt|Bike|Walk: absolute baseline for the zone
+// speedTrend / congTrend / modeTrend: "vs last week" pct override
+const ZONE_KPI: Record<string, {
+  speedKmh: number; speedTrend: number
+  congPct: number;  congTrend: number
+  modeCar: number; modePt: number; modeBike: number; modeWalk: number
+  modeTrend: number
+}> = {
+  '9':  { speedKmh: 28.4, speedTrend: -1.9, congPct: 78.2, congTrend:  2.1, modeCar: 38, modePt: 35, modeBike: 17, modeWalk: 10, modeTrend: -2.8 }, // Capitol Hill — transit-heavy, congested
+  '13': { speedKmh: 33.1, speedTrend: -1.2, congPct: 74.5, congTrend:  1.8, modeCar: 55, modePt: 25, modeBike: 12, modeWalk:  8, modeTrend:  1.5 }, // Cherry Creek — commercial, car-dominant
+  '14': { speedKmh: 44.2, speedTrend:  2.1, congPct: 42.8, congTrend: -2.4, modeCar: 35, modePt: 28, modeBike: 22, modeWalk: 15, modeTrend: -3.5 }, // City Park — open, low traffic
+  '20': { speedKmh: 41.0, speedTrend:  1.2, congPct: 48.3, congTrend: -1.5, modeCar: 42, modePt: 27, modeBike: 18, modeWalk: 13, modeTrend: -1.8 }, // Congress Park — quiet residential
+  '70': { speedKmh: 39.8, speedTrend:  0.8, congPct: 52.6, congTrend: -0.9, modeCar: 40, modePt: 28, modeBike: 20, modeWalk: 12, modeTrend: -2.2 }, // Washington Park — park & trails
+}
+
 // ---------------------------------------------------------------------------
 // Helper: trend arrow
 // ---------------------------------------------------------------------------
@@ -46,9 +73,10 @@ function TrendBadge({ value, positiveIsGood }: { value: number; positiveIsGood: 
   const good = positiveIsGood ? up : !up
   const color = good ? '#16a34a' : '#dc2626'
   const arrow = up ? '\u25B2' : '\u25BC'
+  const sign = up ? '+' : ''
   return (
-    <span style={{ fontSize: 11, fontWeight: 600, color, marginLeft: 6 }}>
-      {arrow} {Math.abs(value).toFixed(1)}%
+    <span style={{ fontSize: 11, fontWeight: 600, color, display: 'block', marginTop: 4 }}>
+      {arrow} {sign}{value.toFixed(1)}% vs last week
     </span>
   )
 }
@@ -68,71 +96,78 @@ const cardStyle: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
-// TrendsCarousel — 2-card carousel (2 charts per card), 5 s auto-advance
+// TrendsPicker — single full-width chart, metric selected via dropdown
 // ---------------------------------------------------------------------------
 
-function TrendsCarousel({ trends }: { trends: DenverPulseTrends }) {
-  const { index, progress, goTo, pause, resume } = useAutoCycle(2, 5000)
+type TrendMetric = 'emissions' | 'congestion' | 'speed' | 'modeShare'
 
-  const cards = [
-    [
-      <TrendSparkline key="em"
-        title="Emissions" unit="tCO₂e"
-        labels={trends.labels}
-        series={[{ values: trends.emissions, color: '#f97316' }]}
-      />,
-      <TrendSparkline key="cg"
-        title="Congestion" unit="%"
-        labels={trends.labels}
-        series={[{ values: trends.congestion ?? [], color: '#ef4444' }]}
-        colorZones={[{ above: 70, color: '#fecaca' }, { above: 40, color: '#fde68a' }, { above: 0, color: '#d1fae5' }]}
-      />,
-    ],
-    [
-      <TrendSparkline key="sp"
-        title="Avg Speed" unit="km/h"
-        labels={trends.labels}
-        series={[{ values: trends.speed ?? [], color: '#3b82f6' }]}
-      />,
-      <TrendSparkline key="ms"
-        title="Mode Share" unit="%" stacked
-        labels={trends.labels}
-        series={[
-          { values: trends.car_pct,  color: '#ef4444', label: 'Car',     fillOpacity: 0.55 },
-          { values: trends.pt_pct,   color: '#3b82f6', label: 'Transit', fillOpacity: 0.55 },
-          { values: trends.bike_pct, color: '#10b981', label: 'Bike',    fillOpacity: 0.55 },
-          { values: trends.walk_pct, color: '#6b7280', label: 'Walk',    fillOpacity: 0.55 },
-        ]}
-      />,
-    ],
-  ]
+const TREND_OPTIONS: { value: TrendMetric; label: string }[] = [
+  { value: 'emissions',  label: 'GHG Emissions' },
+  { value: 'congestion', label: 'Congestion Index' },
+  { value: 'speed',      label: 'Avg Speed' },
+  { value: 'modeShare',  label: 'Mode Share' },
+]
 
+function TrendsPicker({
+  trends,
+  metric,
+  onMetricChange,
+}: {
+  trends: DenverPulseTrends
+  metric: TrendMetric
+  onMetricChange: (m: TrendMetric) => void
+}) {
   return (
-    <div onMouseEnter={pause} onMouseLeave={resume}>
-      {/* Progress bar */}
-      <div style={{ height: 2, background: '#e5e7eb', borderRadius: 2, marginBottom: 6, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${progress * 100}%`, background: '#3b82f6', transition: 'width 0.1s linear' }} />
-      </div>
-
-      {/* 2-column chart pair */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {cards[index]}
-      </div>
-
-      {/* Navigation dots */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 6 }}>
-        {cards.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => goTo(i)}
-            style={{
-              width: i === index ? 16 : 7, height: 7, borderRadius: 4,
-              border: 'none', cursor: 'pointer', padding: 0,
-              background: i === index ? '#3b82f6' : '#d1d5db',
-              transition: 'width 0.3s ease, background 0.3s ease',
-            }}
-          />
+    <div>
+      <select
+        value={metric}
+        onChange={e => onMetricChange(e.target.value as TrendMetric)}
+        style={{
+          fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 6,
+          padding: '4px 10px', background: '#f9fafb', color: '#374151',
+          cursor: 'pointer', marginBottom: 12, fontFamily: 'inherit',
+        }}
+      >
+        {TREND_OPTIONS.map(o => (
+          <option key={o.value} value={o.value}>{o.label}</option>
         ))}
+      </select>
+
+      <div style={{ height: 180 }}>
+        {metric === 'emissions' && (
+          <TrendSparkline
+            title="GHG Emissions" unit="tCO₂e"
+            labels={trends.labels}
+            series={[{ values: trends.emissions, color: '#f97316' }]}
+          />
+        )}
+        {metric === 'congestion' && (
+          <TrendSparkline
+            title="Congestion Index" unit="%"
+            labels={trends.labels}
+            series={[{ values: trends.congestion ?? [], color: '#ef4444' }]}
+            colorZones={[{ above: 70, color: '#fecaca' }, { above: 40, color: '#fde68a' }, { above: 0, color: '#d1fae5' }]}
+          />
+        )}
+        {metric === 'speed' && (
+          <TrendSparkline
+            title="Avg Speed" unit="km/h"
+            labels={trends.labels}
+            series={[{ values: trends.speed ?? [], color: '#3b82f6' }]}
+          />
+        )}
+        {metric === 'modeShare' && (
+          <TrendSparkline
+            title="Mode Share" unit="%" stacked
+            labels={trends.labels}
+            series={[
+              { values: trends.car_pct,  color: '#ef4444', label: 'Car',     fillOpacity: 0.55 },
+              { values: trends.pt_pct,   color: '#3b82f6', label: 'Transit', fillOpacity: 0.55 },
+              { values: trends.bike_pct, color: '#10b981', label: 'Bike',    fillOpacity: 0.55 },
+              { values: trends.walk_pct, color: '#6b7280', label: 'Walk',    fillOpacity: 0.55 },
+            ]}
+          />
+        )}
       </div>
     </div>
   )
@@ -154,7 +189,6 @@ const DenverPulseDashboard: React.FC<{ timeWindow?: TimeWindow }> = ({ timeWindo
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState<1 | 2 | 5>(1)
   const [density, setDensity] = useState(60)
-  const [trendsOpen, setTrendsOpen] = useState(true)
 
   // City-wide vehicle state
   const [cityVehicles, setCityVehicles] = useState<TrafficSimVehicle[] | null>(null)
@@ -292,8 +326,6 @@ const DenverPulseDashboard: React.FC<{ timeWindow?: TimeWindow }> = ({ timeWindo
       dashboardData={dashboardData}
       trendRange={trendRange}
       setTrendRange={setTrendRange}
-      trendsOpen={trendsOpen}
-      setTrendsOpen={setTrendsOpen}
       activeMetric={activeMetric}
       setActiveMetric={setActiveMetric}
       selectedZoneId={selectedZoneId}
@@ -318,7 +350,7 @@ const DenverPulseDashboard: React.FC<{ timeWindow?: TimeWindow }> = ({ timeWindo
 
 function DenverPulseDashboardInner({
   apiKpis, kpi_trends, alerts, region_alerts, dashboardData,
-  trendRange, setTrendRange, trendsOpen, setTrendsOpen,
+  trendRange, setTrendRange,
   activeMetric, setActiveMetric, selectedZoneId, handleZoneChange,
   zoneLoading, zoneSimData, positions, playing, setPlaying, speed, setSpeed,
   density, setDensity, timeWindow,
@@ -330,8 +362,6 @@ function DenverPulseDashboardInner({
   dashboardData: DenverPulseDashboardResponse
   trendRange: TrendRange
   setTrendRange: (r: TrendRange) => void
-  trendsOpen: boolean
-  setTrendsOpen: (fn: (o: boolean) => boolean) => void
   activeMetric: MapMetric
   setActiveMetric: (m: MapMetric) => void
   selectedZoneId: string | null
@@ -348,20 +378,54 @@ function DenverPulseDashboardInner({
   timeWindow: TimeWindow
 }) {
   const { kpis: liveKpis, flashField } = useLiveKpis(apiKpis)
-  const { groups: liveRegionAlerts, alertTick, latestRegionId } = useRegionAlertFeed(region_alerts ?? [])
+  const { groups: liveRegionAlerts } = useRegionAlertFeed(region_alerts ?? [])
+  const [trendMetric, setTrendMetric] = useState<TrendMetric>('emissions')
 
-  // Determine dominant live mode
-  const modes = liveKpis.mode_share
-  const dominant = (Object.entries(modes) as [string, number][]).sort((a, b) => b[1] - a[1])[0]
+  // Per-zone KPI overrides (null when city-wide)
+  const zoneKpiMeta = selectedZoneId ? ZONE_KPI[selectedZoneId] : null
+  const zoneGhgMeta = selectedZoneId ? ZONE_GHG[selectedZoneId] : null
 
-  // GHG scaled to selected time window
-  const displayGhg = Math.round(liveKpis.ghg_tco2e / GHG_DIVISOR[timeWindow])
+  // GHG
+  const rawGhg = zoneGhgMeta ? liveKpis.ghg_tco2e * zoneGhgMeta.scale : liveKpis.ghg_tco2e
+  const rawApiGhg = zoneGhgMeta ? apiKpis.ghg_tco2e * zoneGhgMeta.scale : apiKpis.ghg_tco2e
+  const displayGhg = Math.round(rawGhg / GHG_DIVISOR[timeWindow])
   const ghgUnit = GHG_UNIT_LABEL[timeWindow]
+  const ghgLabel = zoneGhgMeta
+    ? `${TOP_ZONES.find(z => z.id === selectedZoneId)?.name ?? ''} GHG (${timeWindow})`
+    : `GHG Emissions (${timeWindow})`
 
-  // Live trend badges — drift from initial API value on top of backend baseline trend
-  const liveGhgTrend = liveTrend(liveKpis.ghg_tco2e, apiKpis.ghg_tco2e, kpi_trends.ghg ?? 0)
-  const liveSpeedTrend = liveTrend(liveKpis.avg_speed_kmh, apiKpis.avg_speed_kmh, kpi_trends.speed ?? 0)
-  const liveCongTrend = liveTrend(liveKpis.congestion_pct, apiKpis.congestion_pct, kpi_trends.congestion ?? 0)
+  // Speed — zone baseline + live drift
+  const liveDriftSpeed = liveKpis.avg_speed_kmh - apiKpis.avg_speed_kmh
+  const displaySpeed = zoneKpiMeta ? zoneKpiMeta.speedKmh + liveDriftSpeed : liveKpis.avg_speed_kmh
+
+  // Congestion — zone baseline + live drift
+  const liveDriftCong = liveKpis.congestion_pct - apiKpis.congestion_pct
+  const displayCong = zoneKpiMeta ? zoneKpiMeta.congPct + liveDriftCong : liveKpis.congestion_pct
+
+  // Mode share — zone baseline + live drift per mode
+  const zoneModes = zoneKpiMeta
+    ? {
+        car:  zoneKpiMeta.modeCar  + (liveKpis.mode_share.car  - apiKpis.mode_share.car),
+        pt:   zoneKpiMeta.modePt   + (liveKpis.mode_share.pt   - apiKpis.mode_share.pt),
+        bike: zoneKpiMeta.modeBike + (liveKpis.mode_share.bike - apiKpis.mode_share.bike),
+        walk: zoneKpiMeta.modeWalk + (liveKpis.mode_share.walk - apiKpis.mode_share.walk),
+      }
+    : liveKpis.mode_share
+  const dominant = (Object.entries(zoneModes) as [string, number][]).sort((a, b) => b[1] - a[1])[0]
+
+  // Live trend badges
+  const liveGhgTrend = zoneGhgMeta
+    ? liveTrend(rawGhg, rawApiGhg, zoneGhgMeta.trend)
+    : liveTrend(liveKpis.ghg_tco2e, apiKpis.ghg_tco2e, kpi_trends.ghg ?? 0)
+  const liveSpeedTrend = zoneKpiMeta
+    ? zoneKpiMeta.speedTrend + liveDriftSpeed / (zoneKpiMeta.speedKmh / 100)
+    : liveTrend(liveKpis.avg_speed_kmh, apiKpis.avg_speed_kmh, kpi_trends.speed ?? 0)
+  const liveCongTrend = zoneKpiMeta
+    ? zoneKpiMeta.congTrend + liveDriftCong / (zoneKpiMeta.congPct / 100)
+    : liveTrend(liveKpis.congestion_pct, apiKpis.congestion_pct, kpi_trends.congestion ?? 0)
+  const liveModeTrend = zoneKpiMeta
+    ? zoneKpiMeta.modeTrend + (liveKpis.mode_share.car - apiKpis.mode_share.car)
+    : liveTrend(liveKpis.mode_share.car, apiKpis.mode_share.car, kpi_trends.pt ?? 0)
 
   // Choose trend data
   const trendsMap: Record<TrendRange, DenverPulseTrends> = {
@@ -397,7 +461,7 @@ function DenverPulseDashboardInner({
         {/* GHG */}
         <div style={cardStyle}>
           <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-            GHG Emissions ({timeWindow})
+            {ghgLabel}
             <span style={{ fontSize: 10, color: '#d1d5db', marginLeft: 3 }}>*</span>
           </div>
           <div style={{
@@ -419,7 +483,7 @@ function DenverPulseDashboardInner({
             {dominant[0].charAt(0).toUpperCase() + dominant[0].slice(1)} {dominant[1].toFixed(2)}%
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-            {(Object.entries(modes) as [string, number][]).map(([k, v]) => (
+            {(Object.entries(zoneModes) as [string, number][]).map(([k, v]) => (
               <span key={k} style={{ fontSize: 10, color: '#6b7280' }}>
                 <span
                   style={{
@@ -436,6 +500,7 @@ function DenverPulseDashboardInner({
               </span>
             ))}
           </div>
+          <TrendBadge value={liveModeTrend} positiveIsGood={false} />
         </div>
 
         {/* Average Speed */}
@@ -445,7 +510,7 @@ function DenverPulseDashboardInner({
             fontSize: 26, fontWeight: 700, color: '#111827', marginTop: 4,
             borderRadius: 4, animation: flashField === 'avg_speed_kmh' ? 'kpiFlash 0.6s ease-out' : 'none',
           }}>
-            {liveKpis.avg_speed_kmh.toFixed(1)} <span style={{ fontSize: 14, fontWeight: 500 }}>km/h</span>
+            {displaySpeed.toFixed(1)} <span style={{ fontSize: 14, fontWeight: 500 }}>km/h</span>
           </div>
           <TrendBadge value={liveSpeedTrend} positiveIsGood={true} />
         </div>
@@ -457,7 +522,7 @@ function DenverPulseDashboardInner({
             fontSize: 26, fontWeight: 700, color: '#111827', marginTop: 4,
             borderRadius: 4, animation: flashField === 'congestion_pct' ? 'kpiFlash 0.6s ease-out' : 'none',
           }}>
-            {liveKpis.congestion_pct.toFixed(1)}%
+            {displayCong.toFixed(1)}%
           </div>
           <TrendBadge value={liveCongTrend} positiveIsGood={false} />
         </div>
@@ -509,7 +574,7 @@ function DenverPulseDashboardInner({
           <div style={{ flex: 1, position: 'relative' }}>
             <DenverPulseCesiumMap
               metric={activeMetric}
-              cesiumEdges={selectedZoneId ? EMPTY_EDGES : (dashboardData.cesium_edges[activeMetric] || EMPTY_EDGES)}
+              cesiumEdges={EMPTY_EDGES}
               height="100%"
               trafficSimPositions={positions.length > 0 ? positions : null}
               trafficSimBoundary={selectedZoneId ? (zoneSimData?.boundary ?? null) : null}
@@ -580,23 +645,19 @@ function DenverPulseDashboardInner({
         </div>
 
         {/* Region Alerts */}
-        <RegionAlertPanel regionAlerts={liveRegionAlerts} fallbackAlerts={alerts} alertTick={alertTick} latestRegionId={latestRegionId} />
+        <RegionAlertPanel
+          regionAlerts={liveRegionAlerts}
+          fallbackAlerts={alerts}
+          selectedZoneId={selectedZoneId}
+          zoneOrder={TOP_ZONES.map(z => z.id)}
+        />
       </div>
 
-      {/* Trends — collapsible 2×2 grid */}
+      {/* Trends */}
       <div style={{ ...cardStyle, flexShrink: 0 }}>
-        {/* Header + period toggle + collapse button */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: trendsOpen ? 10 : 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Trends</span>
-            <button
-              onClick={() => setTrendsOpen(o => !o)}
-              title={trendsOpen ? 'Collapse trends' : 'Expand trends'}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 12, padding: '0 2px', lineHeight: 1 }}
-            >
-              {trendsOpen ? '▲' : '▼'}
-            </button>
-          </div>
+        {/* Header row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Trends</span>
           <div style={{ display: 'flex', gap: 4 }}>
             {(['7d', '30d', 'ytd'] as TrendRange[]).map(r => (
               <button
@@ -616,8 +677,12 @@ function DenverPulseDashboardInner({
           </div>
         </div>
 
-        {trendsOpen && activeTrends && (
-          <TrendsCarousel trends={activeTrends} />
+        {activeTrends && (
+          <TrendsPicker
+            trends={activeTrends}
+            metric={trendMetric}
+            onMetricChange={setTrendMetric}
+          />
         )}
       </div>
 

@@ -115,6 +115,7 @@ export interface DenverPulseSavedScenario {
   sliders: DenverPulseSliders
   simulate_result: DenverPulseSimulateResponse
   confidence_score: number
+  assigned_to?: string | null
 }
 
 export interface DenverPulseCompareResponse {
@@ -166,6 +167,12 @@ export const api = {
 
   deleteScenario: (id: string) =>
     req<{ ok: boolean }>(`/scenarios/${id}`, { method: 'DELETE' }),
+
+  assignScenario: (id: string, agency: string) =>
+    req<{ ok: boolean; assigned_to: string }>(`/scenarios/${id}/assign`, {
+      method: 'PATCH',
+      body: JSON.stringify({ agency }),
+    }),
 
   compareScenarios: (body: { scenario_ids: string[] }) =>
     req<DenverPulseCompareResponse>('/scenarios/compare', {

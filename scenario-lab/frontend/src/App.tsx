@@ -11,6 +11,8 @@ import PredictiveMaintScenario from './components/scenarios/PredictiveMaintScena
 import SettingsScenario from './components/scenarios/SettingsScenario'
 import SimulationSelector from './components/SimulationSelector'
 import DenverPulseApp from './components/denver-pulse/DenverPulseApp'
+import BentleyLogin, { type DenverRole } from './components/denver-pulse/BentleyLogin'
+import WhyThisResultModal from './components/ui/WhyThisResultModal'
 
 class ErrorBoundary extends Component<
   { children: React.ReactNode },
@@ -48,32 +50,48 @@ export interface SimulationResult {
   [key: string]: unknown
 }
 
+type MapMetric = 'ghg' | 'mode' | 'speed' | 'congestion'
+
+const MAP_LEGENDS: Record<MapMetric, { label: string; color: string }[]> = {
+  ghg:        [{ label: 'High', color: '#ef4444' }, { label: 'Med', color: '#f97316' }, { label: 'Low', color: '#22c55e' }],
+  mode:       [{ label: 'Car', color: '#f97316' }, { label: 'PT', color: '#3b82f6' }, { label: 'Bike', color: '#10b981' }, { label: 'Walk', color: '#8b5cf6' }],
+  speed:      [{ label: 'Fast', color: '#22c55e' }, { label: 'Mod', color: '#eab308' }, { label: 'Slow', color: '#ef4444' }],
+  congestion: [{ label: 'Severe', color: '#dc2626' }, { label: 'Mod', color: '#f97316' }, { label: 'Free', color: '#22c55e' }],
+}
+
 // ─── Toll Plaza module (existing app) ─────────────────────────────────────────
 
 const TollPlazaApp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [activeScenario, setActiveScenario] = useState<ScenarioType>('toll')
   const [simDuration, setSimDuration] = useState(30)
+  const [mapMetric, setMapMetric] = useState<MapMetric>('ghg')
+  const [currentResult, setCurrentResult] = useState<SimulationResult | null>(null)
+  const [whyOpen, setWhyOpen] = useState(false)
 
   const handleScenarioChange = useCallback((scenario: ScenarioType) => {
     setActiveScenario(scenario)
   }, [])
 
+  const handleResult = useCallback((result: SimulationResult) => {
+    setCurrentResult(result)
+  }, [])
+
   const renderScenario = () => {
     switch (activeScenario) {
       case 'toll':
-        return <TollScenario onResult={() => {}} simDuration={simDuration} />
+        return <TollScenario onResult={handleResult} simDuration={simDuration} />
       case 'corridor':
-        return <CorridorScenario onResult={() => {}} simDuration={simDuration} />
+        return <CorridorScenario onResult={handleResult} simDuration={simDuration} />
       case 'emission':
-        return <EmissionScenario onResult={() => {}} simDuration={simDuration} />
+        return <EmissionScenario onResult={handleResult} simDuration={simDuration} />
       case 'evasion':
-        return <EvasionScenario onResult={() => {}} simDuration={simDuration} />
+        return <EvasionScenario onResult={handleResult} simDuration={simDuration} />
       case 'comparison':
-        return <ComparisonScenario onResult={() => {}} simDuration={simDuration} />
+        return <ComparisonScenario onResult={handleResult} simDuration={simDuration} />
       case 'asset_health':
-        return <AssetHealthScenario onResult={() => {}} />
+        return <AssetHealthScenario onResult={handleResult} />
       case 'predictive_maint':
-        return <PredictiveMaintScenario onResult={() => {}} />
+        return <PredictiveMaintScenario onResult={handleResult} />
       case 'settings':
         return <SettingsScenario simDuration={simDuration} onSimDurationChange={setSimDuration} />
     }
@@ -91,8 +109,7 @@ const TollPlazaApp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             background: '#0f3460',
             display: 'flex',
             flexDirection: 'column',
-            overflowY: 'auto',
-            overflowX: 'hidden',
+            overflow: 'hidden',
             zIndex: 10,
             boxShadow: '2px 0 12px rgba(0,0,0,0.5)',
           }}
@@ -149,12 +166,93 @@ const TollPlazaApp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 20px' }}>
             {renderScenario()}
           </div>
+
+          {/* Why this result — appears after any simulation */}
+          {currentResult && (
+            <div style={{
+              padding: '10px 16px',
+              borderTop: '1px solid #1a3a60',
+              flexShrink: 0,
+            }}>
+              <button
+                onClick={() => setWhyOpen(true)}
+                style={{
+                  width: '100%', padding: '8px 14px',
+                  background: 'transparent',
+                  border: '1px solid #2a5a90',
+                  borderRadius: 6, cursor: 'pointer',
+                  color: '#8899aa', fontSize: 12, fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#e0e0e0'
+                  ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#4a7ab0'
+                  ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.color = '#8899aa'
+                  ;(e.currentTarget as HTMLButtonElement).style.borderColor = '#2a5a90'
+                  ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                }}
+              >
+                ❓ Why this result?
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Right Cesium pane */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          <CesiumViewer />
+        {/* Right pane — Impact Visualization header + Cesium */}
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Header bar */}
+          <div style={{
+            background: '#0a2744',
+            borderBottom: '1px solid #1a4a80',
+            padding: '8px 16px',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#c0d0e0' }}>
+              <span>🗺</span>
+              <span>Impact Visualization</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {/* Legend */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                {MAP_LEGENDS[mapMetric].map(item => (
+                  <span key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#8899aa', fontWeight: 500 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.color, display: 'inline-block', flexShrink: 0 }} />
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+              {/* Metric dropdown */}
+              <select
+                value={mapMetric}
+                onChange={e => setMapMetric(e.target.value as MapMetric)}
+                style={{
+                  fontSize: 11, padding: '3px 8px', borderRadius: 5,
+                  border: '1px solid #2a5a90', background: '#0f3460',
+                  color: '#c0d0e0', cursor: 'pointer', fontWeight: 500,
+                }}
+              >
+                <option value="ghg">GHG Emissions</option>
+                <option value="mode">Mode Share</option>
+                <option value="speed">Average Speed</option>
+                <option value="congestion">Congestion Level</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Cesium viewer fills remaining height */}
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            <CesiumViewer />
+          </div>
         </div>
+
+        <WhyThisResultModal open={whyOpen} onClose={() => setWhyOpen(false)} />
       </div>
     </ErrorBoundary>
   )
@@ -164,10 +262,28 @@ const TollPlazaApp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
 const App: React.FC = () => {
   const [activeModule, setActiveModule] = useState<SimulationModule>(null)
+  const [denverRole, setDenverRole] = useState<DenverRole | null>(null)
 
   if (activeModule === null) return <SimulationSelector onSelect={setActiveModule} />
   if (activeModule === 'toll_plaza') return <TollPlazaApp onBack={() => setActiveModule(null)} />
-  if (activeModule === 'denver_traffic') return <ErrorBoundary><DenverPulseApp onBack={() => setActiveModule(null)} /></ErrorBoundary>
+  if (activeModule === 'denver_traffic') {
+    if (!denverRole) {
+      return (
+        <BentleyLogin
+          onLogin={role => setDenverRole(role)}
+          onBack={() => setActiveModule(null)}
+        />
+      )
+    }
+    return (
+      <ErrorBoundary>
+        <DenverPulseApp
+          onBack={() => { setActiveModule(null); setDenverRole(null) }}
+          role={denverRole}
+        />
+      </ErrorBoundary>
+    )
+  }
   return null
 }
 

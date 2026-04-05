@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { api, DenverPulseSliders, DenverPulseSimulateResponse, DenverPulseSavedScenario } from './api'
+import WhyThisResultModal from '../ui/WhyThisResultModal'
 
 const DenverPulseCesiumMap = React.lazy(() =>
   import('./DenverPulseCesiumMap').catch(() => ({
@@ -31,6 +32,17 @@ const MODE_SLIDERS = [
 ]
 
 const MODE_KEYS = MODE_SLIDERS.map(s => s.key) as Array<keyof DenverPulseSliders>
+
+const SIM_STAGES: { at: number; icon: string; label: string }[] = [
+  { at: 0,  icon: '⚙',  label: 'Initializing model parameters'  },
+  { at: 15, icon: '🗺',  label: 'Loading road network data'       },
+  { at: 32, icon: '📋', label: 'Applying policy multipliers'      },
+  { at: 52, icon: '🚦', label: 'Running traffic assignment'       },
+  { at: 70, icon: '🌿', label: 'Computing emissions model'        },
+  { at: 87, icon: '📊', label: 'Finalizing scenario results'      },
+]
+const SIM_TOTAL_MS = 12000   // 0→99 % over this duration
+const SIM_TICK_MS  = 80
 
 const DEFAULT_SLIDERS: DenverPulseSliders = {
   traffic_vol_idx: 100,
@@ -129,19 +141,37 @@ interface SimulationProps {
   onLoaded?: () => void
 }
 
+type MapMetric = 'ghg' | 'mode' | 'speed' | 'congestion'
+
+const MAP_METRIC_OPTIONS: { value: MapMetric; label: string }[] = [
+  { value: 'ghg',        label: 'GHG Emissions'    },
+  { value: 'mode',       label: 'Mode Share'        },
+  { value: 'speed',      label: 'Average Speed'     },
+  { value: 'congestion', label: 'Congestion Level'  },
+]
+
 const DenverPulseSimulation: React.FC<SimulationProps> = ({ loadedScenario, onLoaded }) => {
   const [activePolicies, setActivePolicies] = useState<Set<string>>(new Set())
-  const [scope, setScope] = useState('city')
+  const [scope, setScope] = useState('capitol_hill')
   const [horizon, setHorizon] = useState('1y')
   const [sliders, setSliders] = useState<DenverPulseSliders>({ ...DEFAULT_SLIDERS })
   const [simulateResult, setSimulateResult] = useState<DenverPulseSimulateResponse | null>(null)
   const [running, setRunning] = useState(false)
+  const [whyOpen, setWhyOpen] = useState(false)
   const [hasRun, setHasRun] = useState(false)
+  const [mapMetric, setMapMetric] = useState<MapMetric>('ghg')
+  const [progress, setProgress] = useState(0)
+  const [stageIdx, setStageIdx] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingResult = useRef<DenverPulseSimulateResponse | null>(null)
   const [mapView, setMapView] = useState<'baseline' | 'scenario'>('baseline')
   const [saveModalOpen, setSaveModalOpen] = useState(false)
   const [scenarioName, setScenarioName] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+
+  // Cleanup timer on unmount
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
 
   // Load scenario from Scenarios view
   useEffect(() => {
@@ -204,21 +234,58 @@ const DenverPulseSimulation: React.FC<SimulationProps> = ({ loadedScenario, onLo
     }
   }
 
-  const runSimulation = async () => {
+  const runSimulation = () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    pendingResult.current = null
     setRunning(true)
-    try {
-      const result = await api.simulate({
-        policies: [...activePolicies],
-        scope,
-        horizon,
-        sliders,
-      })
-      setSimulateResult(result)
-      setHasRun(true)
-      setMapView('scenario')
-    } finally {
-      setRunning(false)
+    setProgress(0)
+    setStageIdx(0)
+
+    // Fire API immediately — result held in ref until progress completes
+    api.simulate({ policies: [...activePolicies], scope, horizon, sliders })
+      .then(r => { pendingResult.current = r })
+      .catch(() => { pendingResult.current = null })
+
+    let elapsed = 0
+
+    const applyResult = () => {
+      setProgress(100)
+      setTimeout(() => {
+        if (pendingResult.current) {
+          setSimulateResult(pendingResult.current)
+          setHasRun(true)
+          setMapView('scenario')
+        }
+        setRunning(false)
+        setProgress(0)
+        setStageIdx(0)
+      }, 350)
     }
+
+    const waitForApi = () => {
+      if (pendingResult.current !== null) { applyResult(); return }
+      timerRef.current = setTimeout(waitForApi, 100)
+    }
+
+    const tick = () => {
+      elapsed += SIM_TICK_MS
+      const pct = Math.min(99, (elapsed / SIM_TOTAL_MS) * 100)
+      setProgress(pct)
+
+      // Advance stage index based on current %
+      setStageIdx(
+        SIM_STAGES.reduce((best, s, i) => (pct >= s.at ? i : best), 0)
+      )
+
+      if (pct < 99) {
+        timerRef.current = setTimeout(tick, SIM_TICK_MS)
+      } else {
+        // Hold at 99% until API resolves
+        waitForApi()
+      }
+    }
+
+    timerRef.current = setTimeout(tick, SIM_TICK_MS)
   }
 
   const handleSave = async () => {
@@ -264,8 +331,43 @@ const DenverPulseSimulation: React.FC<SimulationProps> = ({ loadedScenario, onLo
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {/* Impact Map Card — grows to fill */}
         <div style={{ flex: 1, minHeight: 300, background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Impact Visualization</span>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {/* Title */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 'auto' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Impact Visualization</span>
+            </div>
+
+            {/* Legend dots */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {[
+                { color: '#ef4444', label: 'High' },
+                { color: '#f97316', label: 'Med'  },
+                { color: '#22c55e', label: 'Low'  },
+              ].map(({ color, label }) => (
+                <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 500, color: '#4b5563' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            {/* Metric dropdown */}
+            <select
+              value={mapMetric}
+              onChange={e => setMapMetric(e.target.value as MapMetric)}
+              style={{
+                fontSize: 12, fontWeight: 500,
+                border: '1px solid #e5e7eb', borderRadius: 6,
+                padding: '4px 10px', background: '#fff',
+                color: '#374151', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {MAP_METRIC_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+
+            {/* Baseline / Scenario toggle */}
             {simulateResult && (
               <div style={{ display: 'flex', gap: 4 }}>
                 {(['baseline', 'scenario'] as const).map(v => (
@@ -273,11 +375,8 @@ const DenverPulseSimulation: React.FC<SimulationProps> = ({ loadedScenario, onLo
                     key={v}
                     onClick={() => setMapView(v)}
                     style={{
-                      padding: '4px 10px',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      borderRadius: 4,
-                      border: '1px solid',
+                      padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                      borderRadius: 4, border: '1px solid',
                       borderColor: mapView === v ? '#3b82f6' : '#e5e7eb',
                       background: mapView === v ? '#eff6ff' : '#fff',
                       color: mapView === v ? '#1d4ed8' : '#6b7280',
@@ -298,8 +397,8 @@ const DenverPulseSimulation: React.FC<SimulationProps> = ({ loadedScenario, onLo
             ) : (
               <React.Suspense fallback={<div style={{ padding: 20, color: '#888' }}>Loading map...</div>}>
                 <DenverPulseCesiumMap
-                  metric="congestion"
-                  cesiumEdges={mapView === 'baseline' ? simulateResult.cesium_edges.baseline : simulateResult.cesium_edges.scenario}
+                  metric={mapMetric}
+                  cesiumEdges={{}}
                   height="100%"
                 />
               </React.Suspense>
@@ -361,10 +460,7 @@ const DenverPulseSimulation: React.FC<SimulationProps> = ({ loadedScenario, onLo
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>Confidence:</span>
                 <span style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: 4,
+                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
                   background: simulateResult.confidence_score >= 80 ? '#dcfce7' : simulateResult.confidence_score >= 60 ? '#fef3c7' : '#fee2e2',
                   color: simulateResult.confidence_score >= 80 ? '#166534' : simulateResult.confidence_score >= 60 ? '#92400e' : '#991b1b',
                 }}>
@@ -401,10 +497,97 @@ const DenverPulseSimulation: React.FC<SimulationProps> = ({ loadedScenario, onLo
             )}
           </div>
 
+          {/* Decision Summary Card */}
+          {simulateResult && (() => {
+            const gd = simulateResult.baseline.ghg_tco2e !== 0
+              ? (simulateResult.deltas.ghg_tco2e_delta / simulateResult.baseline.ghg_tco2e) * 100
+              : 0
+            const pd = simulateResult.deltas.mode_share_delta.pt
+            const cd = simulateResult.deltas.congestion_pct_delta
+            const sd = simulateResult.deltas.avg_speed_kmh_delta
+
+            const getDecisionTitle = (g: number, p: number, c: number, s: number) => {
+              if (g < -10 && p > 3) return 'Aggressive Emission Reduction'
+              if (g < -5 && c < -5) return 'Balanced Congestion & Emissions Cut'
+              if (s > 5 && c < -8) return 'High-Speed Corridor Optimization'
+              if (p > 5) return 'Strong Transit Mode Shift'
+              if (g < -3) return 'Moderate Emission Improvement'
+              if (c < -3) return 'Congestion Relief Achieved'
+              if (s > 2) return 'Speed Flow Improvement'
+              return 'Marginal Policy Impact'
+            }
+
+            const getDecisionSummary = (g: number, p: number, c: number, s: number) => {
+              if (g < -10 && p > 3) return 'Strong emission reduction achieved — significant improvement over baseline.'
+              if (g < -5 && c < -5) return 'Policies effectively reduce both emissions and road congestion.'
+              if (s > 5 && c < -8) return 'Traffic flow significantly improved with reduced congestion delays.'
+              if (p > 5) return 'Mode shift toward transit is substantial — good for long-term sustainability.'
+              if (g < -3) return 'Modest emission gains — consider stronger EV or transit incentives.'
+              if (c < -3) return 'Congestion slightly relieved — limited but positive network effect.'
+              if (s > 2) return 'Minor speed gains observed — impact is within normal variation range.'
+              return 'Policy mix shows limited measurable effect — adjust parameters for stronger outcomes.'
+            }
+
+            const title = getDecisionTitle(gd, pd, cd, sd)
+            const summary = getDecisionSummary(gd, pd, cd, sd)
+
+            return (
+              <div style={{
+                margin: '8px 0',
+                border: '1px solid #bfdbfe',
+                background: 'rgba(239,246,255,0.6)',
+                borderRadius: 6,
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+              }}>
+                {/* Left: icon + title + summary */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 6,
+                    background: '#dbeafe',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0, fontSize: 14,
+                  }}>💡</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a8a' }}>{title}</div>
+                    <div style={{ fontSize: 11, color: '#1d4ed8', marginTop: 2 }}>{summary}</div>
+                  </div>
+                </div>
+                {/* Right: button */}
+                <button
+                  onClick={() => setWhyOpen(true)}
+                  style={{
+                    flexShrink: 0,
+                    padding: '5px 12px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: '#1d4ed8',
+                    background: '#fff',
+                    border: '1px solid #93c5fd',
+                    borderRadius: 5,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  ❓ Why this result?
+                </button>
+              </div>
+            )
+          })()}
+
           {/* Collapsible Data & Methodology section */}
           {simulateResult && <DataMethodologyPanel policies={[...activePolicies]} />}
         </div>
       </div>
+
+      <WhyThisResultModal
+        open={whyOpen}
+        onClose={() => setWhyOpen(false)}
+        confidenceText={simulateResult ? `Model confidence is ${simulateResult.confidence_score.toFixed(0)}%. Results are derived from established traffic engineering models (BPR, Webster) calibrated against historical Denver data. Confidence is higher for moderate traffic loads and lower near capacity limits where non-linear effects dominate.` : undefined}
+      />
 
       {/* RIGHT COLUMN */}
       <div style={{ width: 460, flexShrink: 1, minWidth: 340, display: 'flex', flexDirection: 'column', gap: 10, overflow: 'hidden' }}>
@@ -422,41 +605,44 @@ const DenverPulseSimulation: React.FC<SimulationProps> = ({ loadedScenario, onLo
                   key={p.id}
                   onClick={() => togglePolicy(p.id)}
                   style={{
-                    minWidth: 130,
-                    padding: '8px 12px',
+                    flex: '1 1 130px',
+                    padding: '8px 10px',
                     borderRadius: 6,
                     border: `2px solid ${active ? '#3b82f6' : '#e5e7eb'}`,
                     background: active ? '#eff6ff' : '#fff',
                     color: active ? '#1d4ed8' : '#4b5563',
                     cursor: 'pointer',
-                    fontSize: 11,
-                    fontWeight: 600,
                     textAlign: 'left',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
                   }}
-                  title={p.desc}
                 >
-                  {p.title}
+                  <span style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3 }}>{p.title}</span>
+                  <span style={{ fontSize: 10, fontWeight: 400, color: active ? '#3b82f6' : '#9ca3af', lineHeight: 1.3 }}>{p.desc}</span>
                 </button>
               )
             })}
             <button
               disabled
               style={{
-                minWidth: 130,
-                padding: '8px 12px',
+                flex: '1 1 130px',
+                padding: '8px 10px',
                 borderRadius: 6,
                 border: '2px solid #e5e7eb',
-                background: '#fff',
-                color: '#4b5563',
+                background: '#f9fafb',
+                color: '#9ca3af',
                 opacity: 0.6,
                 cursor: 'not-allowed',
-                fontSize: 11,
-                fontWeight: 600,
                 textAlign: 'left',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
               }}
               title="Coming Soon"
             >
-              Policy Library
+              <span style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3 }}>Policy Library</span>
+              <span style={{ fontSize: 10, fontWeight: 400, color: '#d1d5db', lineHeight: 1.3 }}>More policies coming soon</span>
             </button>
           </div>
         </div>
@@ -482,9 +668,12 @@ const DenverPulseSimulation: React.FC<SimulationProps> = ({ loadedScenario, onLo
                   onChange={e => setScope(e.target.value)}
                   style={{ width: '100%', marginTop: 4, padding: '6px 8px', borderRadius: 4, border: '1px solid #e5e7eb', fontSize: 12 }}
                 >
-                  <option value="downtown">Downtown</option>
-                  <option value="corridor">Corridor</option>
-                  <option value="city">City</option>
+                  <option value="city" disabled style={{ color: '#9ca3af' }}>City (unavailable)</option>
+                  <option value="capitol_hill">Capitol Hill</option>
+                  <option value="cherry_creek">Cherry Creek</option>
+                  <option value="city_park">City Park</option>
+                  <option value="congress_park">Congress Park</option>
+                  <option value="washington_park">Washington Park</option>
                 </select>
               </div>
               <div>
@@ -557,46 +746,90 @@ const DenverPulseSimulation: React.FC<SimulationProps> = ({ loadedScenario, onLo
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'row', gap: 8 }}>
-          <button
-            onClick={runSimulation}
-            disabled={running}
-            style={{
-              flex: 1,
-              background: '#111827',
-              color: '#fff',
-              padding: 10,
-              borderRadius: 6,
-              border: 'none',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: running ? 'not-allowed' : 'pointer',
-              opacity: running ? 0.7 : 1,
-            }}
-          >
-            {running ? '⏳ Processing...' : hasRun ? '🔄 Update Run' : '▶ Run Simulation'}
-          </button>
-          {simulateResult && (
+        {/* Action Buttons + Progress */}
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* Progress bar — only visible while running */}
+          <div style={{
+            overflow: 'hidden',
+            maxHeight: running ? 32 : 0,
+            transition: 'max-height 0.2s ease',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <span style={{ fontSize: 10, color: '#6b7280', fontWeight: 500 }}>
+                {SIM_STAGES[stageIdx]?.label}
+              </span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#2563eb', fontVariantNumeric: 'tabular-nums' }}>
+                {Math.round(progress)}%
+              </span>
+            </div>
+            <div style={{ height: 4, background: '#e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${progress}%`,
+                background: 'linear-gradient(90deg, #1d4ed8, #3b82f6)',
+                borderRadius: 2,
+                transition: `width ${SIM_TICK_MS}ms linear`,
+              }} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={() => {
-                setScenarioName('Scenario ' + new Date().toISOString().slice(0, 16).replace('T', ' '))
-                setSaveModalOpen(true)
-              }}
+              onClick={runSimulation}
+              disabled={running}
               style={{
-                background: '#fff',
-                border: '1px solid #e5e7eb',
-                padding: '10px 16px',
+                flex: 1,
+                background: running ? '#1d4ed8' : '#111827',
+                color: '#fff',
+                padding: '10px 12px',
                 borderRadius: 6,
-                fontSize: 13,
+                border: 'none',
+                fontSize: 12,
                 fontWeight: 600,
-                cursor: 'pointer',
-                color: '#374151',
+                cursor: running ? 'not-allowed' : 'pointer',
+                transition: 'background 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
               }}
             >
-              💾 Save
+              {running ? (
+                <>
+                  <span style={{ flexShrink: 0 }}>{SIM_STAGES[stageIdx]?.icon}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {SIM_STAGES[stageIdx]?.label}
+                  </span>
+                  <span style={{ flexShrink: 0, opacity: 0.75, fontVariantNumeric: 'tabular-nums' }}>
+                    {Math.round(progress)}%
+                  </span>
+                </>
+              ) : hasRun ? '🔄 Re-run Simulation' : '▶ Run Simulation'}
             </button>
-          )}
+            {simulateResult && !running && (
+              <button
+                onClick={() => {
+                  setScenarioName('Scenario ' + new Date().toISOString().slice(0, 16).replace('T', ' '))
+                  setSaveModalOpen(true)
+                }}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #e5e7eb',
+                  padding: '10px 16px',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  color: '#374151',
+                  flexShrink: 0,
+                }}
+              >
+                💾 Save
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

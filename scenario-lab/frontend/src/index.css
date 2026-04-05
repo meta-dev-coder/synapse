@@ -4,105 +4,131 @@
   padding: 0;
 }
 
+/* Design tokens — mirrors the HTML prototype */
+:root {
+  --font-heading:          'Plus Jakarta Sans', sans-serif;
+  --font-body:             'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --letter-spacing-heading: -0.02em;
+  --letter-spacing-body:    0px;
+  --radius-small:           0.5rem;
+  --radius-large:           1rem;
+  --shadow-color:           15 23 42;
+  --shadow-custom:          0px 4px 12px -2px rgba(15, 23, 42, 0.08);
+  --shadow-custom-hover:    0px 8px 24px -4px rgba(15, 23, 42, 0.12);
+
+  /* Denver Pulse geo-dashboard palette (kept for any legacy usage) */
+  --den-bg:          #f8fafc;
+  --den-panel:       #ffffff;
+  --den-surface:     #f1f5f9;
+  --den-border:      #e2e8f0;
+  --den-primary:     #2563eb;
+  --den-success:     #10b981;
+  --den-warning:     #f59e0b;
+  --den-danger:      #ef4444;
+  --den-text:        #111827;
+  --den-text-muted:  #6b7280;
+  --den-font:        var(--font-body);
+}
+
 html, body, #root {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  font-family: var(--font-body);
+  letter-spacing: var(--letter-spacing-body);
+  background: #f8fafc;
+  color: #111827;
 }
 
 button {
   cursor: pointer;
   border: none;
   outline: none;
+  font-family: var(--font-body);
 }
 
+/* Range inputs — matches prototype */
 input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
-  height: 4px;
-  border-radius: 2px;
-  background: #3a3a5c;
-  outline: none;
   width: 100%;
+  background: transparent;
 }
-
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
+  height: 15px;
+  width: 15px;
   border-radius: 50%;
-  background: #e94560;
+  background: #2563eb;
   cursor: pointer;
+  margin-top: -5.5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  border: 2px solid #fff;
+  transition: transform 0.1s;
 }
-
-input[type='range']::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #e94560;
+input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+input[type='range']::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
   cursor: pointer;
-  border: none;
+  background: #e2e8f0;
+  border-radius: 2px;
+}
+input[type='range']:focus {
+  outline: none;
 }
 
 input[type='number'] {
-  background: #1a1a3e;
-  border: 1px solid #3a3a5c;
-  color: #e0e0e0;
-  border-radius: 4px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  color: #111827;
+  border-radius: var(--radius-small);
   padding: 4px 6px;
   font-size: 13px;
+  font-family: var(--font-body);
   width: 70px;
 }
-
 input[type='number']:focus {
-  border-color: #e94560;
+  border-color: #2563eb;
   outline: none;
 }
 
 select {
-  background: #1a1a3e;
-  border: 1px solid #3a3a5c;
-  color: #e0e0e0;
-  border-radius: 4px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  border-radius: var(--radius-small);
   padding: 5px 8px;
   font-size: 13px;
+  font-family: var(--font-body);
   cursor: pointer;
 }
-
 select:focus {
-  border-color: #e94560;
+  border-color: #2563eb;
   outline: none;
 }
 
+/* Scrollbar — matches prototype */
 ::-webkit-scrollbar {
   width: 5px;
+  height: 5px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #0f3460;
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #3a3a6c;
-  border-radius: 3px;
+  background: #cbd5e1;
+  border-radius: 10px;
 }
 
-/* Denver dark geo-dashboard theme */
-:root {
-  --den-bg:          #0f172a;
-  --den-panel:       #1e293b;
-  --den-surface:     #334155;
-  --den-border:      #475569;
-  --den-primary:     #0078d4;
-  --den-success:     #22c55e;
-  --den-warning:     #f59e0b;
-  --den-danger:      #ef4444;
-  --den-text:        #f1f5f9;
-  --den-text-muted:  #94a3b8;
-  --den-font:        "Inter", "Segoe UI", sans-serif;
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+@keyframes kpiFlash {
+  0%   { background: rgba(59, 130, 246, 0.13); }
+  100% { background: transparent; }
 }

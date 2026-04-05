@@ -1,5 +1,6 @@
 import React, { useState, Suspense, useCallback } from 'react'
 import type { DenverPulseSavedScenario } from './api'
+import type { DenverRole } from './BentleyLogin'
 
 type TimeWindow = '1h' | '6h' | '24h'
 
@@ -38,7 +39,13 @@ const NAV: NavItem[] = [
   { id: 'scenarios', label: 'Scenarios & Compare', icon: '🔀' },
 ]
 
-const DenverPulseApp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+const ROLE_META: Record<DenverRole, { name: string; title: string; initials: string }> = {
+  policy:    { name: 'Sarah Chen',    title: 'Policy Analyst',    initials: 'SC' },
+  emergency: { name: 'Sarah Jenkins', title: 'Emergency Manager', initials: 'SJ' },
+}
+
+const DenverPulseApp: React.FC<{ onBack: () => void; role?: DenverRole }> = ({ onBack, role = 'policy' }) => {
+  const user = ROLE_META[role]
   const [activeView, setActiveView] = useState<View>('dashboard')
   const [loadedScenario, setLoadedScenario] = useState<DenverPulseSavedScenario | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -50,7 +57,7 @@ const DenverPulseApp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   }, [])
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       {/* Sidebar */}
       <aside
         style={{
@@ -163,30 +170,36 @@ const DenverPulseApp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <div
               style={{
                 width: 36, height: 36, borderRadius: '50%',
-                background: '#dbeafe', border: '1px solid #bfdbfe',
+                background: role === 'emergency' ? '#fee2e2' : '#dbeafe',
+                border: `1px solid ${role === 'emergency' ? '#fecaca' : '#bfdbfe'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14, fontWeight: 700, color: '#1d4ed8', flexShrink: 0,
+                fontSize: 12, fontWeight: 700,
+                color: role === 'emergency' ? '#dc2626' : '#1d4ed8',
+                flexShrink: 0,
               }}
             >
-              DA
+              {user.initials}
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap' }}>Denver Analyst</div>
-              <div style={{ fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>Policy Analyst</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap' }}>{user.name}</div>
+              <div style={{ fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>{user.title}</div>
             </div>
           </div>
         ) : (
           <div style={{ padding: '14px 0', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'center' }}>
             <div
-              title="Denver Analyst — Policy Analyst"
+              title={`${user.name} — ${user.title}`}
               style={{
                 width: 32, height: 32, borderRadius: '50%',
-                background: '#dbeafe', border: '1px solid #bfdbfe',
+                background: role === 'emergency' ? '#fee2e2' : '#dbeafe',
+                border: `1px solid ${role === 'emergency' ? '#fecaca' : '#bfdbfe'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 700, color: '#1d4ed8', cursor: 'default',
+                fontSize: 11, fontWeight: 700,
+                color: role === 'emergency' ? '#dc2626' : '#1d4ed8',
+                cursor: 'default',
               }}
             >
-              DA
+              {user.initials}
             </div>
           </div>
         )}

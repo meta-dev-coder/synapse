@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react'
-import { trafficSimApi, NeighborhoodInfo, TrafficSimInitResponse, TrafficSimVehicle } from './api'
-import useTrafficSimLoop from './useTrafficSimLoop'
+import React, { useState, useEffect, useCallback, Suspense } from 'react'
+import { trafficSimApi, NeighborhoodInfo, TrafficSimInitResponse/*, TrafficSimVehicle*/ } from './api'
+// import useTrafficSimLoop from './useTrafficSimLoop' // DISABLED: live vehicle animation
 
 const DenverPulseCesiumMap = React.lazy(() =>
   import('./DenverPulseCesiumMap').catch(() => ({
@@ -32,7 +32,7 @@ const DenverPulseTrafficSim: React.FC = () => {
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState<1 | 2 | 5>(1)
   const [error, setError] = useState<string | null>(null)
-  const repathingRef = useRef(false)
+  // const repathingRef = useRef(false) // DISABLED: live vehicle animation
 
   // Fetch neighborhoods on mount
   useEffect(() => {
@@ -52,8 +52,9 @@ const DenverPulseTrafficSim: React.FC = () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await trafficSimApi.initTrafficSim({ neighborhood_id: id })
-      setSimData(data)
+      // DISABLED: live vehicle animation — comment back in to re-enable
+      // const data = await trafficSimApi.initTrafficSim({ neighborhood_id: id })
+      // setSimData(data)
     } catch (err) {
       console.error('Init traffic sim failed:', err)
       setError(`Failed to initialize simulation: ${err instanceof Error ? err.message : String(err)}`)
@@ -62,27 +63,29 @@ const DenverPulseTrafficSim: React.FC = () => {
     }
   }, [])
 
-  const mergeRef = useRef<((v: TrafficSimVehicle[]) => void) | null>(null)
+  // const mergeRef = useRef<((v: TrafficSimVehicle[]) => void) | null>(null) // DISABLED: live vehicle animation
 
+  // DISABLED: live vehicle animation — comment back in to re-enable
   // onNeedRepath calls mergeVehicles via ref (avoids circular dependency)
-  const onNeedRepath = useCallback((count: number) => {
-    if (!selectedId || repathingRef.current) return
-    repathingRef.current = true
-    trafficSimApi.repathVehicles({ neighborhood_id: selectedId, count })
-      .then(data => {
-        if (mergeRef.current) mergeRef.current(data.vehicles)
-      })
-      .catch(err => console.warn('Repath failed:', err))
-      .finally(() => { repathingRef.current = false })
-  }, [selectedId])
-
-  const { positions, mergeVehicles } = useTrafficSimLoop(
-    simData?.vehicles ?? null,
-    playing,
-    speed,
-    onNeedRepath,
-  )
-  mergeRef.current = mergeVehicles
+  // const onNeedRepath = useCallback((count: number) => {
+  //   if (!selectedId || repathingRef.current) return
+  //   repathingRef.current = true
+  //   trafficSimApi.repathVehicles({ neighborhood_id: selectedId, count })
+  //     .then(data => {
+  //       if (mergeRef.current) mergeRef.current(data.vehicles)
+  //     })
+  //     .catch(err => console.warn('Repath failed:', err))
+  //     .finally(() => { repathingRef.current = false })
+  // }, [selectedId])
+  //
+  // const { positions, mergeVehicles } = useTrafficSimLoop(
+  //   simData?.vehicles ?? null,
+  //   playing,
+  //   speed,
+  //   onNeedRepath,
+  // )
+  // mergeRef.current = mergeVehicles
+  const positions: { lon: number; lat: number; mode: string }[] = []
 
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
@@ -93,7 +96,7 @@ const DenverPulseTrafficSim: React.FC = () => {
             metric="congestion"
             cesiumEdges={{}}
             height="100%"
-            trafficSimPositions={positions.length > 0 ? positions : null}
+            trafficSimPositions={null /* DISABLED: was positions.length > 0 ? positions : null */}
             trafficSimBoundary={simData?.boundary ?? null}
           />
         </Suspense>

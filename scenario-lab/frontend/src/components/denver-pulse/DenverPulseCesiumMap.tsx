@@ -51,20 +51,21 @@ function corridorCssColor(metric: Metric, value: number): string {
 }
 
 // Vehicle point configs per mode
-const VEHICLE_POINT_CONFIGS: Record<string, { pixelSize: number; color: Cesium.Color; outlineColor: Cesium.Color; outlineWidth: number }> = {
-  car: { pixelSize: 8, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
-  bus: { pixelSize: 12, color: Cesium.Color.BLUE, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
-  truck: { pixelSize: 10, color: Cesium.Color.fromCssColorString('#ff8800'), outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
-  bike: { pixelSize: 5, color: Cesium.Color.GREEN, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
-  van: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 1 },
-}
-
-const METRIC_DOT_COLORS: Record<Metric, Cesium.Color> = {
-  ghg: Cesium.Color.fromCssColorString('#ef4444'),
-  congestion: Cesium.Color.fromCssColorString('#f59e0b'),
-  speed: Cesium.Color.fromCssColorString('#22c55e'),
-  mode: Cesium.Color.fromCssColorString('#3b82f6'),
-}
+// DISABLED: live vehicle animation — comment back in to re-enable
+// const VEHICLE_POINT_CONFIGS: Record<string, { pixelSize: number; color: Cesium.Color; outlineColor: Cesium.Color; outlineWidth: number }> = {
+//   car: { pixelSize: 8, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
+//   bus: { pixelSize: 12, color: Cesium.Color.BLUE, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+//   truck: { pixelSize: 10, color: Cesium.Color.fromCssColorString('#ff8800'), outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
+//   bike: { pixelSize: 5, color: Cesium.Color.GREEN, outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
+//   van: { pixelSize: 8, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.BLACK, outlineWidth: 1 },
+// }
+//
+// const METRIC_DOT_COLORS: Record<Metric, Cesium.Color> = {
+//   ghg: Cesium.Color.fromCssColorString('#ef4444'),
+//   congestion: Cesium.Color.fromCssColorString('#f59e0b'),
+//   speed: Cesium.Color.fromCssColorString('#22c55e'),
+//   mode: Cesium.Color.fromCssColorString('#3b82f6'),
+// }
 
 const DENVER_BOUNDS = { west: -105.2, east: -104.7, south: 39.5, north: 39.95 }
 const DENVER_CENTER = { lon: -104.9903, lat: 39.7392 }
@@ -74,7 +75,7 @@ let renderCount = 0
 const DenverPulseCesiumMap: React.FC<Props> = memo(({
   metric, cesiumEdges, height = '100%',
   trafficSimPositions, trafficSimBoundary,
-  dotColorMode = 'mode',
+  dotColorMode: _dotColorMode = 'mode',
   cameraAltitude = 7000,
 }) => {
   renderCount++
@@ -188,6 +189,7 @@ const DenverPulseCesiumMap: React.FC<Props> = memo(({
       // Draw corridors using PolylineCollection (primitive — NO geometry workers)
       dpLog('MAP:corridors', 'adding PolylineCollection...')
       const plc = viewer.scene.primitives.add(new Cesium.PolylineCollection()) as Cesium.PolylineCollection
+      plc.show = false  // start hidden; update effect controls visibility via cesiumEdges prop
       polylineCollectionRef.current = plc
 
       for (const [name, coords] of Object.entries(CORRIDOR_DEFS)) {
@@ -262,71 +264,72 @@ const DenverPulseCesiumMap: React.FC<Props> = memo(({
     }
   }, [metric, cesiumEdges])
 
+  // DISABLED: live vehicle rendering — comment back in to re-enable
   // Vehicle rendering — PointPrimitiveCollection (GPU-batched, no geometry workers)
-  const pointCollectionRef = useRef<Cesium.PointPrimitiveCollection | null>(null)
-  const vehicleUpdateCount = useRef(0)
-
-  useEffect(() => {
-    const viewer = viewerRef.current
-    if (!viewer || viewer.isDestroyed()) return
-
-    if (!trafficSimPositions || trafficSimPositions.length === 0) {
-      if (pointCollectionRef.current) {
-        pointCollectionRef.current.removeAll()
-        dpLog('MAP:vehicles', 'cleared all points (no positions)')
-      }
-      return
-    }
-
-    vehicleUpdateCount.current++
-    const shouldLog = vehicleUpdateCount.current <= 5 || vehicleUpdateCount.current % 20 === 0
-
-    if (shouldLog) {
-      dpLog('MAP:vehicles', `update #${vehicleUpdateCount.current}`, {
-        count: trafficSimPositions.length,
-        pcExists: !!pointCollectionRef.current,
-        pcLength: pointCollectionRef.current?.length ?? 0,
-      })
-    }
-
-    const t0 = performance.now()
-
-    // Lazily create collection
-    if (!pointCollectionRef.current) {
-      dpLog('MAP:vehicles', 'creating PointPrimitiveCollection')
-      pointCollectionRef.current = viewer.scene.primitives.add(
-        new Cesium.PointPrimitiveCollection()
-      ) as Cesium.PointPrimitiveCollection
-    }
-
-    const pc = pointCollectionRef.current
-    const len = trafficSimPositions.length
-
-    for (let i = 0; i < len; i++) {
-      const p = trafficSimPositions[i]
-      const config = VEHICLE_POINT_CONFIGS[p.mode] || VEHICLE_POINT_CONFIGS.car
-      const color = dotColorMode === 'metric'
-        ? METRIC_DOT_COLORS[metric] ?? config.color
-        : config.color
-      const pos = Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0)
-
-      if (i < pc.length) {
-        const existing = pc.get(i)
-        existing.position = pos
-        existing.color = color
-        existing.pixelSize = config.pixelSize
-      } else {
-        pc.add({ position: pos, pixelSize: config.pixelSize, color, outlineColor: config.outlineColor, outlineWidth: config.outlineWidth })
-      }
-    }
-    while (pc.length > len) {
-      pc.remove(pc.get(pc.length - 1))
-    }
-
-    if (shouldLog) {
-      dpLog('MAP:vehicles', `update #${vehicleUpdateCount.current} took ${(performance.now() - t0).toFixed(1)}ms, pcLength=${pc.length}`)
-    }
-  }, [trafficSimPositions, dotColorMode, metric])
+  // const pointCollectionRef = useRef<Cesium.PointPrimitiveCollection | null>(null)
+  // const vehicleUpdateCount = useRef(0)
+  //
+  // useEffect(() => {
+  //   const viewer = viewerRef.current
+  //   if (!viewer || viewer.isDestroyed()) return
+  //
+  //   if (!trafficSimPositions || trafficSimPositions.length === 0) {
+  //     if (pointCollectionRef.current) {
+  //       pointCollectionRef.current.removeAll()
+  //       dpLog('MAP:vehicles', 'cleared all points (no positions)')
+  //     }
+  //     return
+  //   }
+  //
+  //   vehicleUpdateCount.current++
+  //   const shouldLog = vehicleUpdateCount.current <= 5 || vehicleUpdateCount.current % 20 === 0
+  //
+  //   if (shouldLog) {
+  //     dpLog('MAP:vehicles', `update #${vehicleUpdateCount.current}`, {
+  //       count: trafficSimPositions.length,
+  //       pcExists: !!pointCollectionRef.current,
+  //       pcLength: pointCollectionRef.current?.length ?? 0,
+  //     })
+  //   }
+  //
+  //   const t0 = performance.now()
+  //
+  //   // Lazily create collection
+  //   if (!pointCollectionRef.current) {
+  //     dpLog('MAP:vehicles', 'creating PointPrimitiveCollection')
+  //     pointCollectionRef.current = viewer.scene.primitives.add(
+  //       new Cesium.PointPrimitiveCollection()
+  //     ) as Cesium.PointPrimitiveCollection
+  //   }
+  //
+  //   const pc = pointCollectionRef.current
+  //   const len = trafficSimPositions.length
+  //
+  //   for (let i = 0; i < len; i++) {
+  //     const p = trafficSimPositions[i]
+  //     const config = VEHICLE_POINT_CONFIGS[p.mode] || VEHICLE_POINT_CONFIGS.car
+  //     const color = dotColorMode === 'metric'
+  //       ? METRIC_DOT_COLORS[metric] ?? config.color
+  //       : config.color
+  //     const pos = Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0)
+  //
+  //     if (i < pc.length) {
+  //       const existing = pc.get(i)
+  //       existing.position = pos
+  //       existing.color = color
+  //       existing.pixelSize = config.pixelSize
+  //     } else {
+  //       pc.add({ position: pos, pixelSize: config.pixelSize, color, outlineColor: config.outlineColor, outlineWidth: config.outlineWidth })
+  //     }
+  //   }
+  //   while (pc.length > len) {
+  //     pc.remove(pc.get(pc.length - 1))
+  //   }
+  //
+  //   if (shouldLog) {
+  //     dpLog('MAP:vehicles', `update #${vehicleUpdateCount.current} took ${(performance.now() - t0).toFixed(1)}ms, pcLength=${pc.length}`)
+  //   }
+  // }, [trafficSimPositions, dotColorMode, metric])
 
   // Track whether we've ever had a boundary
   const hadBoundaryRef = useRef(false)

@@ -32,9 +32,14 @@ def init_db() -> None:
             policies         TEXT NOT NULL,
             sliders          TEXT NOT NULL,
             simulate_result  TEXT NOT NULL,
-            confidence_score REAL NOT NULL
+            confidence_score REAL NOT NULL,
+            assigned_to      TEXT
         )
     """)
+    # Migration: add assigned_to to existing tables that predate this column
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(denver_pulse_scenarios)")}
+    if "assigned_to" not in existing:
+        conn.execute("ALTER TABLE denver_pulse_scenarios ADD COLUMN assigned_to TEXT")
     conn.commit()
     conn.close()
 
@@ -108,6 +113,16 @@ def delete_scenario(id: str) -> None:
     conn.close()
 
 
+def assign_scenario(id: str, agency: str) -> None:
+    conn = get_conn()
+    conn.execute(
+        "UPDATE denver_pulse_scenarios SET assigned_to = ? WHERE id = ?",
+        (agency, id),
+    )
+    conn.commit()
+    conn.close()
+
+
 def _row_to_dict(r: sqlite3.Row) -> dict:
     return {
         "id": r["id"],
@@ -120,4 +135,5 @@ def _row_to_dict(r: sqlite3.Row) -> dict:
         "sliders": json.loads(r["sliders"]),
         "simulate_result": json.loads(r["simulate_result"]),
         "confidence_score": r["confidence_score"],
+        "assigned_to": r["assigned_to"],
     }

@@ -1,6 +1,5 @@
-import React, { useEffect, useRef } from 'react'
+import React from 'react'
 import { DenverPulseAlert, RegionAlertGroup } from './api'
-import useAutoCycle from './useAutoCycle'
 
 // ---------------------------------------------------------------------------
 // Shared alert styles (moved here from DenverPulseDashboard)
@@ -29,14 +28,6 @@ const SEVERITY_COLORS: Record<string, string> = {
   INFO:     '#2563eb',
 }
 
-const DOT_COLORS: Record<string, string> = {
-  red:    '#ef4444',
-  orange: '#f97316',
-  yellow: '#eab308',
-  green:  '#22c55e',
-  blue:   '#3b82f6',
-}
-
 const cardStyle: React.CSSProperties = {
   background: '#fff',
   borderRadius: 12,
@@ -49,7 +40,7 @@ const cardStyle: React.CSSProperties = {
 // AlertItem
 // ---------------------------------------------------------------------------
 
-export function AlertItem({ alert }: { alert: DenverPulseAlert }) {
+export function AlertItem({ alert, regionName }: { alert: DenverPulseAlert; regionName?: string }) {
   const s = ALERT_STYLES[alert.level] ?? ALERT_STYLES.blue
   const icon = METRIC_ICONS[alert.metric_type ?? 'traffic'] ?? '🚗'
   const sevColor = SEVERITY_COLORS[alert.severity_label ?? 'INFO'] ?? '#2563eb'
@@ -69,11 +60,21 @@ export function AlertItem({ alert }: { alert: DenverPulseAlert }) {
         <span style={{ fontSize: 11, color: sevColor, fontWeight: 700 }}>
           {icon} {alert.severity_label ?? 'INFO'}
         </span>
-        {trendPct != null && (
-          <span style={{ fontSize: 11, fontWeight: 600, color: trendPct > 0 ? '#dc2626' : '#16a34a' }}>
-            {trendPct > 0 ? '▲' : '▼'} {Math.abs(trendPct).toFixed(1)}%
-          </span>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {regionName && (
+            <span style={{
+              fontSize: 10, fontWeight: 600, color: '#6b7280',
+              background: '#f3f4f6', borderRadius: 4, padding: '1px 5px',
+            }}>
+              {regionName}
+            </span>
+          )}
+          {trendPct != null && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: trendPct > 0 ? '#dc2626' : '#16a34a' }}>
+              {trendPct > 0 ? '▲' : '▼'} {Math.abs(trendPct).toFixed(1)}%
+            </span>
+          )}
+        </div>
       </div>
       {/* Title */}
       <div style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{alert.title}</div>
@@ -94,33 +95,19 @@ export function AlertItem({ alert }: { alert: DenverPulseAlert }) {
 interface Props {
   regionAlerts: RegionAlertGroup[]
   fallbackAlerts: DenverPulseAlert[]
-  alertTick?: number
-  latestRegionId?: string | null
+  selectedZoneId?: string | null
+  zoneOrder?: string[]
 }
 
-export default function RegionAlertPanel({ regionAlerts, fallbackAlerts, alertTick, latestRegionId }: Props) {
+export default function RegionAlertPanel({ regionAlerts, fallbackAlerts, selectedZoneId, zoneOrder }: Props) {
   const groups = regionAlerts.length > 0 ? regionAlerts : null
-  const { index, progress, goTo, jumpTo, pause, resume } = useAutoCycle(groups?.length ?? 1, 5000)
-  const scrollRef = useRef<HTMLDivElement>(null)
 
-  // When new alerts arrive: jump to the updated region for 4 s, scroll to top to show new cards
-  useEffect(() => {
-    if (!alertTick || !groups) return
-    const targetIdx = latestRegionId
-      ? groups.findIndex(g => g.region_id === latestRegionId)
-      : 0
-    jumpTo(targetIdx >= 0 ? targetIdx : 0, 4000)
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-    }, 50)
-  }, [alertTick]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fallback: render static city-wide list when no region data
+  // City-wide fallback when no region data
   if (!groups) {
     return (
       <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Alerts</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Alerts — City-wide</span>
           <span style={{
             fontSize: 10, fontWeight: 700, background: '#ef4444',
             color: '#fff', borderRadius: 10, padding: '1px 7px',
@@ -135,60 +122,56 @@ export default function RegionAlertPanel({ regionAlerts, fallbackAlerts, alertTi
     )
   }
 
-  const current = groups[index]
+  // Region selected — show only that region's alerts
+  if (selectedZoneId) {
+    const group = groups.find(g => g.region_id === selectedZoneId)
+    const regionAlertList = group?.alerts ?? []
+    return (
+      <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+            Alerts — {group?.region_name ?? 'Region'}
+          </span>
+          <span style={{
+            fontSize: 10, fontWeight: 700, background: '#ef4444',
+            color: '#fff', borderRadius: 10, padding: '1px 7px',
+          }}>
+            {regionAlertList.length}
+          </span>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {regionAlertList.length === 0
+            ? <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', paddingTop: 16 }}>No alerts for this region</div>
+            : regionAlertList.map((a, i) => <AlertItem key={i} alert={a} />)
+          }
+        </div>
+      </div>
+    )
+  }
+
+  // City-wide — all regions in dropdown order, each alert labeled with region name
+  const orderedGroups = zoneOrder
+    ? zoneOrder.map(id => groups.find(g => g.region_id === id)).filter(Boolean) as RegionAlertGroup[]
+    : groups
+  const allAlerts: { alert: DenverPulseAlert; regionName: string }[] = orderedGroups.flatMap(g =>
+    g.alerts.map(a => ({ alert: a, regionName: g.region_name }))
+  )
+  const totalCount = allAlerts.length
 
   return (
-    <div
-      style={{ ...cardStyle, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-      onMouseEnter={pause}
-      onMouseLeave={resume}
-    >
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
-          Alerts — {current.region_name}
-        </span>
+    <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Alerts — City-wide</span>
         <span style={{
           fontSize: 10, fontWeight: 700, background: '#ef4444',
           color: '#fff', borderRadius: 10, padding: '1px 7px',
         }}>
-          {current.alerts.length}
+          {totalCount}
         </span>
       </div>
-
-      {/* Progress bar */}
-      <div style={{ height: 2, background: '#e5e7eb', borderRadius: 2, marginBottom: 10, overflow: 'hidden' }}>
-        <div style={{
-          height: '100%',
-          width: `${progress * 100}%`,
-          background: '#3b82f6',
-          transition: 'width 0.1s linear',
-        }} />
-      </div>
-
-      {/* Alert cards */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto' }}>
-        {current.alerts.map((a, i) => <AlertItem key={i} alert={a} />)}
-      </div>
-
-      {/* Navigation dots */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 10 }}>
-        {groups.map((g, i) => (
-          <button
-            key={g.region_id}
-            onClick={() => goTo(i)}
-            title={g.region_name}
-            style={{
-              width: i === index ? 18 : 8,
-              height: 8,
-              borderRadius: 4,
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              background: i === index ? (DOT_COLORS[g.summary_level] ?? '#3b82f6') : '#d1d5db',
-              transition: 'width 0.3s ease, background 0.3s ease',
-            }}
-          />
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {allAlerts.map(({ alert, regionName }, i) => (
+          <AlertItem key={i} alert={alert} regionName={regionName} />
         ))}
       </div>
     </div>

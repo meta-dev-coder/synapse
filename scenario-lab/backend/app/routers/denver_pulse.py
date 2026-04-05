@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from app.data.denver_pulse_db import (
+    assign_scenario,
     delete_scenario,
     get_scenario,
     init_db,
@@ -111,6 +112,7 @@ async def list_saved_scenarios() -> list[DenverPulseSavedScenario]:
             sliders=DenverPulseSliders(**r["sliders"]),
             simulate_result=DenverPulseSimulateResponse(**r["simulate_result"]),
             confidence_score=r["confidence_score"],
+            assigned_to=r.get("assigned_to"),
         )
         for r in rows
     ]
@@ -155,6 +157,17 @@ async def save_new_scenario(body: DenverPulseSaveRequest) -> DenverPulseSavedSce
 async def delete_saved_scenario(scenario_id: str) -> dict:
     delete_scenario(scenario_id)
     return {"ok": True}
+
+
+@router.patch("/scenarios/{scenario_id}/assign", summary="Assign scenario to an agency")
+async def assign_saved_scenario(scenario_id: str, body: dict) -> dict:
+    agency = body.get("agency", "").strip()
+    if not agency:
+        raise HTTPException(status_code=400, detail="agency is required")
+    if get_scenario(scenario_id) is None:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    assign_scenario(scenario_id, agency)
+    return {"ok": True, "assigned_to": agency}
 
 
 @router.post("/scenarios/compare", response_model=DenverPulseCompareResponse, summary="Compare scenarios")

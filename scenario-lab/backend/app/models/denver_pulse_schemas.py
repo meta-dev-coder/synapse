@@ -121,6 +121,7 @@ class DenverPulseSavedScenario(BaseModel):
     sliders: DenverPulseSliders
     simulate_result: DenverPulseSimulateResponse
     confidence_score: float
+    assigned_to: Optional[str] = None
 
 
 # -- Compare --
